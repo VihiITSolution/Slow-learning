@@ -1,0 +1,77 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+// Context
+import { AuthProvider } from './contexts/AuthContext';
+
+// Pages
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import DashboardPage from './pages/DashboardPage';
+import LessonsPage from './pages/LessonsPage';
+import LessonDetailPage from './pages/LessonDetailPage';
+import ProfilePage from './pages/ProfilePage';
+import LeaderboardPage from './pages/LeaderboardPage';
+import AchievementsPage from './pages/AchievementsPage';
+import MLInsightsPage from './pages/MLInsightsPage';
+
+// Components
+import PrivateRoute from './components/common/PrivateRoute';
+import Layout from './components/common/Layout';
+
+// Styles
+import './styles/App.css';
+
+// Create a client for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+
+            {/* Private Routes */}
+            <Route
+              path="/"
+              element={
+                <PrivateRoute>
+                  <Layout />
+                </PrivateRoute>
+              }
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="lessons" element={<LessonsPage />} />
+              <Route path="lessons/:id" element={<LessonDetailPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="leaderboard" element={<LeaderboardPage />} />
+              <Route path="achievements" element={<AchievementsPage />} />
+              <Route path="ml-insights" element={<MLInsightsPage />} />
+            </Route>
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Router>
+        <ToastContainer position="top-right" autoClose={3000} />
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
