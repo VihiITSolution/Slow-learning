@@ -184,7 +184,7 @@ const DashboardPage = () => {
                         <span style={{fontSize: '20px', fontWeight: '900', color: '#f97316'}}>1,450 XP ⭐</span>
                       </div>
 
-                      <Link to="/leaderboard">
+                      <Link to="/app/leaderboard">
                         <button className="btn-primary" style={{width: '100%', marginTop: '20px'}}>
                           🏅 VIEW FULL LEADERBOARD
                         </button>
@@ -194,17 +194,17 @@ const DashboardPage = () => {
 
                   {/* Quick Links */}
                   <div style={{marginTop: '30px', display: 'flex', gap: '20px', flexWrap: 'wrap'}}>
-                    <Link to="/lessons" style={{flex: 1, minWidth: '200px'}}>
+                    <Link to="/app/lessons" style={{flex: 1, minWidth: '200px'}}>
                       <button className="btn-primary" style={{width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'}}>
                         <FiBook size={24} /> ALL LESSONS
                       </button>
                     </Link>
-                    <Link to="/achievements" style={{flex: 1, minWidth: '200px'}}>
+                    <Link to="/app/achievements" style={{flex: 1, minWidth: '200px'}}>
                       <button className="btn-secondary" style={{width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'}}>
                         <FiAward size={24} /> MY ACHIEVEMENTS
                       </button>
                     </Link>
-                    <Link to="/ml-insights" style={{flex: 1, minWidth: '200px'}}>
+                    <Link to="/app/ml-insights" style={{flex: 1, minWidth: '200px'}}>
                       <button className="btn-primary" style={{width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)'}}>
                         🧠 ML INSIGHTS
                       </button>

@@ -23,6 +23,8 @@ const InteractiveGamesPage = () => {
   const [starsEarned, setStarsEarned] = useState(0);
   const [gamesCompleted, setGamesCompleted] = useState(0);
   const [feedback, setFeedback] = useState('');
+  const [sessionId, setSessionId] = useState(null);
+  const [startTime, setStartTime] = useState(null);
   
   // Game-specific state
   const [gameData, setGameData] = useState(null);
@@ -42,6 +44,12 @@ const InteractiveGamesPage = () => {
   const [isAnswered, setIsAnswered] = useState(false);
 
   useEffect(() => {
+    // Load existing session or use stored session ID
+    const storedSessionId = localStorage.getItem('currentSessionId');
+    if (storedSessionId) {
+      setSessionId(storedSessionId);
+    }
+    
     if (currentGameIndex >= 0 && currentGameIndex < gameSequence.length) {
       loadGame(gameSequence[currentGameIndex]);
     }
@@ -52,6 +60,7 @@ const InteractiveGamesPage = () => {
     setScore(0);
     setStarsEarned(0);
     setGamesCompleted(0);
+    setStartTime(Date.now());
   };
 
   const loadGame = (game) => {
@@ -315,9 +324,30 @@ const InteractiveGamesPage = () => {
     }
   };
 
-  const completeGame = () => {
-    setStarsEarned(starsEarned + 1);
-    setGamesCompleted(gamesCompleted + 1);
+  const completeGame = async () => {
+    const newStars = starsEarned + 1;
+    const newCompleted = gamesCompleted + 1;
+    
+    setStarsEarned(newStars);
+    setGamesCompleted(newCompleted);
+    
+    // Update session in backend
+    if (sessionId) {
+      try {
+        const gameScoreKey = `${currentGame.id}_score`;
+        const totalTime = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        
+        await api.put(`/assessment/sessions/${sessionId}/update`, {
+          [gameScoreKey]: 1,
+          games_completed: newCompleted,
+          total_stars: newStars,
+          total_errors: errors,
+          total_time: totalTime
+        });
+      } catch (error) {
+        console.error('Error updating session:', error);
+      }
+    }
     
     setTimeout(() => {
       goToNextGame();
@@ -337,7 +367,20 @@ const InteractiveGamesPage = () => {
     goToNextGame();
   };
 
-  const showFinalResults = () => {
+  const showFinalResults = async () => {
+    // Complete session in backend
+    if (sessionId) {
+      try {
+        const totalTime = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        
+        await api.post(`/assessment/sessions/${sessionId}/complete`, {
+          total_time: totalTime
+        });
+      } catch (error) {
+        console.error('Error completing session:', error);
+      }
+    }
+    
     setCurrentGame(null);
     setCurrentGameIndex(-2); // -2 means show results
   };
@@ -407,6 +450,9 @@ const InteractiveGamesPage = () => {
           <div className="result-actions">
             <button onClick={() => setCurrentGameIndex(-1)} className="play-again-btn">
               🔄 Play Again
+            </button>
+            <button onClick={() => navigate('/student-dashboard')} className="home-btn">
+              📊 View Dashboard
             </button>
             <button onClick={() => navigate('/learning-helper')} className="home-btn">
               🏠 Back to Home

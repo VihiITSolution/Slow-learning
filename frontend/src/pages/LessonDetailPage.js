@@ -41,7 +41,7 @@ function LessonDetailPage() {
     return (
       <div className="container">
         <div className="error">{error}</div>
-        <button onClick={() => navigate('/lessons')}>Back to Lessons</button>
+        <button onClick={() => navigate('/app/lessons')}>Back to Lessons</button>
       </div>
     );
   }
@@ -50,7 +50,7 @@ function LessonDetailPage() {
     return (
       <div className="container">
         <div className="error">Lesson not found</div>
-        <button onClick={() => navigate('/lessons')}>Back to Lessons</button>
+        <button onClick={() => navigate('/app/lessons')}>Back to Lessons</button>
       </div>
     );
   }
@@ -58,7 +58,7 @@ function LessonDetailPage() {
   return (
     <div className="container">
       <div className="lesson-detail-page">
-        <button onClick={() => navigate('/lessons')} className="back-button">
+        <button onClick={() => navigate('/app/lessons')} className="back-button">
           ← Back to Lessons
         </button>
 

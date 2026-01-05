@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,9 +16,9 @@ const LoginPage = () => {
     setLoading(true);
     
     try {
-      await login(email, password);
+      await login(username, password);
       toast.success('Login successful!');
-      navigate('/dashboard');
+      navigate('/app/dashboard');
     } catch (error) {
       toast.error(error.message || 'Login failed');
     } finally {
@@ -52,17 +52,17 @@ const LoginPage = () => {
                   <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
                     <div className="flex flex-col">
                       <label className="flex flex-col">
-                        <p className="text-[#0d191c] dark:text-slate-200 text-base font-medium leading-normal pb-2">Email</p>
+                        <p className="text-[#0d191c] dark:text-slate-200 text-base font-medium leading-normal pb-2">Username</p>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-xl">
-                            ✉️
+                            👤
                           </span>
                           <input
                             className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#0d191c] dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#25d1f4]/50 border border-slate-200 dark:border-slate-700 bg-[#f5f8f8] dark:bg-slate-800 focus:border-[#25d1f4] h-14 placeholder:text-slate-400 dark:placeholder:text-slate-500 pl-12 pr-4 py-3 text-base font-normal leading-normal"
-                            placeholder="Enter your email address"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Enter your username"
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
                             required
                           />
                         </div>

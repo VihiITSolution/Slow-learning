@@ -1,42 +1,74 @@
 import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { FiHome, FiBook, FiAward, FiTrendingUp, FiUser, FiLogOut } from 'react-icons/fi';
-import { FaBrain, FaGraduationCap } from 'react-icons/fa';
+import { FiHome, FiBook, FiAward, FiTrendingUp, FiUser, FiLogOut, FiSettings, FiUsers, FiBarChart2, FiPackage } from 'react-icons/fi';
+import { FaBrain, FaGraduationCap, FaGamepad } from 'react-icons/fa';
 
 const Layout = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
 
   return (
     <div className="layout">
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <h1 className="app-title">🎓 LearnQuest</h1>
+          <h1 className="app-title">{isAdmin ? '⚙️ Admin Panel' : '🎓 LearnQuest'}</h1>
         </div>
 
         <nav className="sidebar-nav">
-          <Link to="/app/dashboard" className="nav-link">
-            <FiHome /> Dashboard
-          </Link>
-          <Link to="/app/lessons" className="nav-link">
-            <FiBook /> Lessons
-          </Link>
-          <Link to="/learning-helper" className="nav-link">
-            <FaGraduationCap /> Learning Helper
-          </Link>
-          <Link to="/app/achievements" className="nav-link">
-            <FiAward /> Achievements
-          </Link>
-          <Link to="/app/leaderboard" className="nav-link">
-            <FiTrendingUp /> Leaderboard
-          </Link>
-          <Link to="/app/ml-insights" className="nav-link">
-            <FaBrain /> ML Insights
-          </Link>
-          <Link to="/app/profile" className="nav-link">
-            <FiUser /> Profile
-          </Link>
+          {isAdmin ? (
+            // Admin Navigation
+            <>
+              <Link to="/admin/dashboard" className="nav-link">
+                <FiHome /> Dashboard
+              </Link>
+              <Link to="/admin/users" className="nav-link">
+                <FiUsers /> User Management
+              </Link>
+              <Link to="/admin/courses" className="nav-link">
+                <FiBook /> Course Management
+              </Link>
+              <Link to="/admin/analytics" className="nav-link">
+                <FiBarChart2 /> Analytics
+              </Link>
+              <Link to="/app/dashboard" className="nav-link">
+                <FiUser /> Switch to User View
+              </Link>
+            </>
+          ) : (
+            // User Navigation
+            <>
+              <Link to="/app/dashboard" className="nav-link">
+                <FiHome /> Dashboard
+              </Link>
+              <Link to="/app/lessons" className="nav-link">
+                <FiBook /> Lessons
+              </Link>
+              <Link to="/learning-helper" className="nav-link">
+                <FaGraduationCap /> Learning Helper
+              </Link>
+              <Link to="/app/achievements" className="nav-link">
+                <FiAward /> Achievements
+              </Link>
+              <Link to="/app/gamification" className="nav-link">
+                <FaGamepad /> Gamification
+              </Link>
+              <Link to="/app/leaderboard" className="nav-link">
+                <FiTrendingUp /> Leaderboard
+              </Link>
+              <Link to="/app/ml-insights" className="nav-link">
+                <FaBrain /> ML Insights
+              </Link>
+              <Link to="/app/materials" className="nav-link">
+                <FiPackage /> Materials Library
+              </Link>
+              <Link to="/app/profile" className="nav-link">
+                <FiUser /> Profile
+              </Link>
+            </>
+          )}
         </nav>
 
         <div className="sidebar-footer">

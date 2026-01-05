@@ -20,6 +20,15 @@ import MLInsightsPage from './pages/MLInsightsPage';
 import LearningAssessmentPage from './pages/LearningAssessmentPage';
 import InteractiveGamesPage from './pages/InteractiveGamesPage';
 import AssessmentHomePage from './pages/AssessmentHomePage';
+import StudentDashboard from './pages/StudentDashboard';
+import QuizPage from './pages/QuizPage';
+import GamificationPage from './pages/GamificationPage';
+import AdminLoginPage from './pages/AdminLoginPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import UserManagementPage from './pages/UserManagementPage';
+import CourseManagementPage from './pages/CourseManagementPage';
+import MaterialsLibraryPage from './pages/MaterialsLibraryPage';
+import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
 
 // Components
 import PrivateRoute from './components/common/PrivateRoute';
@@ -48,6 +57,7 @@ function App() {
             <Route path="/" element={<Navigate to="/learning-helper" replace />} />
             <Route path="/learning-helper" element={<AssessmentHomePage />} />
             <Route path="/learning-assessment" element={<LearningAssessmentPage />} />
+            <Route path="/student-dashboard" element={<StudentDashboard />} />
             <Route path="/interactive-games" element={<InteractiveGamesPage />} />
             
             {/* Authentication Routes */}
@@ -67,10 +77,30 @@ function App() {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="lessons" element={<LessonsPage />} />
               <Route path="lessons/:id" element={<LessonDetailPage />} />
+              <Route path="lessons/:id/quiz" element={<QuizPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="achievements" element={<AchievementsPage />} />
+              <Route path="gamification" element={<GamificationPage />} />
               <Route path="ml-insights" element={<MLInsightsPage />} />
+              <Route path="materials" element={<MaterialsLibraryPage />} />
+            </Route>
+
+            {/* Admin Routes */}
+            <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route
+              path="/admin"
+              element={
+                <PrivateRoute>
+                  <Layout />
+                </PrivateRoute>
+              }
+            >
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboardPage />} />
+              <Route path="users" element={<UserManagementPage />} />
+              <Route path="courses" element={<CourseManagementPage />} />
+              <Route path="analytics" element={<AdminAnalyticsPage />} />
             </Route>
 
             {/* Fallback */}

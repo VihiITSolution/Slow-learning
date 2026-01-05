@@ -75,7 +75,7 @@ const LessonsPage = () => {
             <p style={{fontSize: '16px', fontWeight: '600', color: '#6b7280', margin: '15px 0'}}>
               Understanding variables in equations! 📐
             </p>
-            <Link to="/lessons/3">
+            <Link to="/app/lessons/3">
               <button className="btn-primary" style={{marginTop: '15px'}}>
                 🚀 CONTINUE LEARNING
               </button>
@@ -137,12 +137,12 @@ const LessonsPage = () => {
 
         {/* Quick Actions */}
         <div style={{marginTop: '40px', display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center'}}>
-          <Link to="/dashboard">
+          <Link to="/app/dashboard">
             <button className="btn-secondary">
               🏠 BACK TO DASHBOARD
             </button>
           </Link>
-          <Link to="/quiz">
+          <Link to="/app/lessons/1/quiz">
             <button className="btn-primary">
               🎯 TAKE A QUIZ
             </button>

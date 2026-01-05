@@ -298,7 +298,7 @@ function MLInsightsPage() {
         )}
 
         <div className="actions">
-          <button onClick={() => navigate('/dashboard')} className="secondary-button">
+          <button onClick={() => navigate('/app/dashboard')} className="secondary-button">
             Back to Dashboard
           </button>
         </div>

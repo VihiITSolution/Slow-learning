@@ -36,7 +36,7 @@ const AssessmentHomePage = () => {
             
             <div 
               className="choice-card child-card"
-              onClick={() => navigate('/interactive-games')}
+              onClick={() => navigate('/student-dashboard')}
             >
               <div className="icon">👧👦</div>
               <h3>I am a Student</h3>

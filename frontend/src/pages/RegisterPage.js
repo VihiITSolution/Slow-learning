@@ -40,7 +40,7 @@ const RegisterPage = () => {
     try {
       await register(formData.username, formData.email, formData.password);
       toast.success('Account created successfully! Welcome to LearnQuest!');
-      navigate('/dashboard');
+      navigate('/app/dashboard');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Registration failed');
     } finally {

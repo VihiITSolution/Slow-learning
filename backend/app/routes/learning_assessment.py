@@ -6,7 +6,10 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models.user import User
+from app.models.game_session import GameSession
 import random
+import uuid
+from datetime import datetime
 
 bp = Blueprint('learning_assessment', __name__)
 
@@ -340,4 +343,131 @@ def track_performance():
         'success': True,
         'game': game,
         'score': score
+    }), 200
+
+
+# ========================================================================================
+# GAME SESSION MANAGEMENT - Track student game plays
+# ========================================================================================
+
+@bp.route('/sessions/create', methods=['POST'])
+def create_game_session():
+    """Create a new game session"""
+    data = request.get_json()
+    
+    session_id = str(uuid.uuid4())
+    student_name = data.get('student_name', 'Anonymous')
+    
+    new_session = GameSession(
+        session_id=session_id,
+        student_name=student_name
+    )
+    
+    db.session.add(new_session)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'session_id': session_id,
+        'session': new_session.to_dict()
+    }), 201
+
+
+@bp.route('/sessions/<session_id>', methods=['GET'])
+def get_game_session(session_id):
+    """Get a specific game session"""
+    session = GameSession.query.filter_by(session_id=session_id).first()
+    
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+    
+    return jsonify(session.to_dict()), 200
+
+
+@bp.route('/sessions/<session_id>/update', methods=['PUT'])
+def update_game_session(session_id):
+    """Update game session progress"""
+    session = GameSession.query.filter_by(session_id=session_id).first()
+    
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+    
+    data = request.get_json()
+    
+    # Update game scores
+    if 'math_score' in data:
+        session.math_score = data['math_score']
+    if 'color_score' in data:
+        session.color_score = data['color_score']
+    if 'memory_score' in data:
+        session.memory_score = data['memory_score']
+    if 'story_score' in data:
+        session.story_score = data['story_score']
+    if 'drawing_score' in data:
+        session.drawing_score = data['drawing_score']
+    
+    # Update overall stats
+    if 'games_completed' in data:
+        session.games_completed = data['games_completed']
+    if 'total_stars' in data:
+        session.total_stars = data['total_stars']
+    if 'total_errors' in data:
+        session.total_errors = data['total_errors']
+    if 'total_time' in data:
+        session.total_time = data['total_time']
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'session': session.to_dict()
+    }), 200
+
+
+@bp.route('/sessions/<session_id>/complete', methods=['POST'])
+def complete_game_session(session_id):
+    """Mark game session as complete"""
+    session = GameSession.query.filter_by(session_id=session_id).first()
+    
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+    
+    data = request.get_json()
+    
+    session.completed_at = datetime.utcnow()
+    
+    # Save learning style results if provided
+    if 'primary_learning_style' in data:
+        session.primary_learning_style = data['primary_learning_style']
+    if 'learning_strengths' in data:
+        session.learning_strengths = data['learning_strengths']
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'session': session.to_dict()
+    }), 200
+
+
+@bp.route('/sessions/recent', methods=['GET'])
+def get_recent_sessions():
+    """Get recent game sessions (last 10)"""
+    sessions = GameSession.query.order_by(GameSession.created_at.desc()).limit(10).all()
+    
+    return jsonify({
+        'success': True,
+        'sessions': [session.to_dict() for session in sessions]
+    }), 200
+
+
+@bp.route('/sessions/student/<student_name>', methods=['GET'])
+def get_student_sessions(student_name):
+    """Get all sessions for a specific student"""
+    sessions = GameSession.query.filter_by(student_name=student_name).order_by(GameSession.created_at.desc()).all()
+    
+    return jsonify({
+        'success': True,
+        'sessions': [session.to_dict() for session in sessions],
+        'total_sessions': len(sessions)
     }), 200

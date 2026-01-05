@@ -4,3 +4,4 @@ export { default as DashboardPage } from './DashboardPage';
 export { default as LessonsPage } from './LessonsPage';
 export { default as AchievementsPage } from './AchievementsPage';
 export { default as LeaderboardPage } from './LeaderboardPage';
+export { default as StudentDashboard } from './StudentDashboard';
