@@ -20,7 +20,7 @@ engagement_predictor = EngagementPredictor()
 @jwt_required()
 def get_dashboard():
     """Get user analytics dashboard data"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     
     if not user:
@@ -63,7 +63,7 @@ def get_dashboard():
 @jwt_required()
 def check_engagement():
     """Check user engagement status using ML model"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     
     if not user:
@@ -120,7 +120,7 @@ def check_engagement():
 @jwt_required()
 def get_progress_over_time():
     """Get user's progress over time"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     days = request.args.get('days', 30, type=int)
     
     start_date = datetime.utcnow() - timedelta(days=days)

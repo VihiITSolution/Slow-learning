@@ -240,10 +240,9 @@ def get_categories():
 
 
 @bp.route('/submit-assessment', methods=['POST'])
-@jwt_required()
+@jwt_required(optional=True)
 def submit_assessment():
     """Process teacher's assessment and identify student's primary learning need"""
-    user_id = get_jwt_identity()
     data = request.get_json()
     answers = data.get('answers', {})
     
@@ -291,6 +290,43 @@ def submit_assessment():
     }), 200
 
 
+@bp.route('/save-to-profile', methods=['POST'])
+def save_assessment_to_profile():
+    """Save assessment results to student's profile"""
+    data = request.get_json()
+    
+    user_id = data.get('user_id')
+    learning_style = data.get('learning_style')
+    assessment_score = data.get('assessment_score')
+    total_questions = data.get('total_questions')
+    all_scores = data.get('all_scores', {})
+    
+    if not user_id or not learning_style:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Update user's assessment data
+    user.learning_style = learning_style
+    user.assessment_score = assessment_score
+    user.assessment_date = datetime.utcnow()
+    user.assessment_data = {
+        'all_scores': all_scores,
+        'total_questions': total_questions,
+        'assessed_at': datetime.utcnow().isoformat()
+    }
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Assessment saved to profile',
+        'user': user.to_dict()
+    }), 200
+
+
 # Game API endpoints
 @bp.route('/games/rhyme-word', methods=['GET'])
 def get_rhyme_word():
@@ -329,7 +365,7 @@ def get_story():
 @jwt_required()
 def track_performance():
     """Track student game performance"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json()
     
     game = data.get('game')
@@ -458,6 +494,18 @@ def get_recent_sessions():
     return jsonify({
         'success': True,
         'sessions': [session.to_dict() for session in sessions]
+    }), 200
+
+
+@bp.route('/sessions/all', methods=['GET'])
+def get_all_sessions():
+    """Get all game sessions (for teacher dashboard)"""
+    sessions = GameSession.query.order_by(GameSession.created_at.desc()).all()
+    
+    return jsonify({
+        'success': True,
+        'sessions': [session.to_dict() for session in sessions],
+        'total_sessions': len(sessions)
     }), 200
 
 

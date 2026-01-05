@@ -26,12 +26,12 @@ const AssessmentHomePage = () => {
           <div className="choices">
             <div 
               className="choice-card teacher-card"
-              onClick={() => navigate('/learning-assessment')}
+              onClick={() => navigate('/student-selection')}
             >
               <div className="icon">👨‍🏫</div>
               <h3>I am a Teacher</h3>
-              <p>Identify student learning needs and get personalized recommendations</p>
-              <div className="button">Enter Teacher Mode</div>
+              <p>Select a student and assess their learning needs to get personalized recommendations</p>
+              <div className="button">Select Student & Start Assessment</div>
             </div>
             
             <div 

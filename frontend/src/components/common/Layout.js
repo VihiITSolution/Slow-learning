@@ -8,13 +8,16 @@ const Layout = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
+  const isTeacher = location.pathname.startsWith('/teacher');
 
   return (
     <div className="layout">
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <h1 className="app-title">{isAdmin ? '⚙️ Admin Panel' : '🎓 LearnQuest'}</h1>
+          <h1 className="app-title">
+            {isAdmin ? '⚙️ Admin Panel' : isTeacher ? '👨‍🏫 Teacher Portal' : '🎓 LearnQuest'}
+          </h1>
         </div>
 
         <nav className="sidebar-nav">
@@ -35,6 +38,25 @@ const Layout = () => {
               </Link>
               <Link to="/app/dashboard" className="nav-link">
                 <FiUser /> Switch to User View
+              </Link>
+            </>
+          ) : isTeacher ? (
+            // Teacher Navigation
+            <>
+              <Link to="/teacher/dashboard" className="nav-link">
+                <FiHome /> Dashboard
+              </Link>
+              <Link to="/student-selection" className="nav-link">
+                <FaGraduationCap /> Start Assessment
+              </Link>
+              <Link to="/interactive-games" className="nav-link">
+                <FaGamepad /> Interactive Games
+              </Link>
+              <Link to="/student-dashboard" className="nav-link">
+                <FiUsers /> Student Results
+              </Link>
+              <Link to="/app/profile" className="nav-link">
+                <FiUser /> My Profile
               </Link>
             </>
           ) : (
@@ -60,9 +82,6 @@ const Layout = () => {
               </Link>
               <Link to="/app/ml-insights" className="nav-link">
                 <FaBrain /> ML Insights
-              </Link>
-              <Link to="/app/materials" className="nav-link">
-                <FiPackage /> Materials Library
               </Link>
               <Link to="/app/profile" className="nav-link">
                 <FiUser /> Profile

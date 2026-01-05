@@ -16,7 +16,7 @@ bp = Blueprint('gamification', __name__)
 @jwt_required()
 def get_achievements():
     """Get user's achievements"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     
     achievements = Achievement.query.filter_by(user_id=user_id).order_by(
         Achievement.earned_at.desc()
@@ -31,7 +31,7 @@ def get_achievements():
 @jwt_required()
 def unlock_achievement():
     """Unlock an achievement for the user"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json()
     
     achievement_type = data.get('achievement_type')
@@ -126,7 +126,7 @@ def get_leaderboard():
 @jwt_required()
 def get_streak():
     """Get user's streak information"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     
     if not user:
@@ -143,7 +143,7 @@ def get_streak():
 @jwt_required()
 def add_xp():
     """Add XP to user (for completing activities)"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json()
     
     xp_amount = data.get('xp_amount', 0)

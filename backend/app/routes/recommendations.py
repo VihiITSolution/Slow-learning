@@ -21,7 +21,7 @@ recommender = LearningRecommender()
 @jwt_required()
 def get_recommendations():
     """Get personalized lesson recommendations"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     
     if not user:
@@ -108,7 +108,7 @@ def get_recommendations():
 @jwt_required()
 def get_next_lesson():
     """Get the next recommended lesson"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     
     # Get user's completed lessons
     completed_lessons = [

@@ -27,7 +27,7 @@ def predict_user_engagement(user_id):
     """
     try:
         # Check if current user has permission (admin or self)
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         # TODO: Add admin check if needed
         
         result = engagement_service.predict_user_engagement(user_id)

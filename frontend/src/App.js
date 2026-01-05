@@ -23,6 +23,8 @@ import AssessmentHomePage from './pages/AssessmentHomePage';
 import StudentDashboard from './pages/StudentDashboard';
 import QuizPage from './pages/QuizPage';
 import GamificationPage from './pages/GamificationPage';
+import TeacherDashboardPage from './pages/TeacherDashboardPage';
+import StudentSelectionPage from './pages/StudentSelectionPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import UserManagementPage from './pages/UserManagementPage';
@@ -56,6 +58,7 @@ function App() {
             {/* Public Routes - Learning Helper System */}
             <Route path="/" element={<Navigate to="/learning-helper" replace />} />
             <Route path="/learning-helper" element={<AssessmentHomePage />} />
+            <Route path="/student-selection" element={<StudentSelectionPage />} />
             <Route path="/learning-assessment" element={<LearningAssessmentPage />} />
             <Route path="/student-dashboard" element={<StudentDashboard />} />
             <Route path="/interactive-games" element={<InteractiveGamesPage />} />
@@ -63,6 +66,19 @@ function App() {
             {/* Authentication Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+
+            {/* Teacher Routes */}
+            <Route
+              path="/teacher"
+              element={
+                <PrivateRoute>
+                  <Layout />
+                </PrivateRoute>
+              }
+            >
+              <Route index element={<Navigate to="/teacher/dashboard" replace />} />
+              <Route path="dashboard" element={<TeacherDashboardPage />} />
+            </Route>
 
             {/* Private Routes - Main App */}
             <Route

@@ -3,9 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authService, gamificationService } from '../services';
 import { toast } from 'react-toastify';
-import { FiEdit2, FiSave, FiUser, FiMail, FiCalendar, FiTrendingUp } from 'react-icons/fi';
-import XPProgressBar from '../components/gamification/XPProgressBar';
-import StreakIndicator from '../components/gamification/StreakIndicator';
+import { FiEdit2, FiSave, FiMail, FiCalendar, FiTrendingUp } from 'react-icons/fi';
+import '../styles/Profile.css';
 
 const ProfilePage = () => {
   const { user, updateUser } = useAuth();
@@ -43,17 +42,26 @@ const ProfilePage = () => {
   };
 
   const avatarOptions = [
-    '/avatars/avatar1.png',
-    '/avatars/avatar2.png',
-    '/avatars/avatar3.png',
-    '/avatars/avatar4.png',
-    '/avatars/avatar5.png',
-    '/avatars/avatar6.png'
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Lucy',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Max',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie'
   ];
+
+  // Calculate XP for next level
+  const currentLevel = user?.level || 1;
+  const currentXP = user?.total_xp || 0;
+  const xpForCurrentLevel = Math.pow(currentLevel - 1, 2) * 100;
+  const xpForNextLevel = Math.pow(currentLevel, 2) * 100;
+  const xpInCurrentLevel = currentXP - xpForCurrentLevel;
+  const xpNeededForLevel = xpForNextLevel - xpForCurrentLevel;
+  const progressPercent = (xpInCurrentLevel / xpNeededForLevel) * 100;
 
   return (
     <div className="profile-page">
-      <h1 className="page-title">My Profile</h1>
+      <h1 className="page-title">🎓 My Profile</h1>
 
       <div className="profile-container">
         {/* Profile Header */}
@@ -127,17 +135,34 @@ const ProfilePage = () => {
 
         {/* XP Progress */}
         <div className="profile-section">
-          <h3>Progress</h3>
-          <XPProgressBar currentXP={user?.total_xp || 0} level={user?.level || 1} />
+          <h3>⭐ Progress</h3>
+          <div className="xp-progress-custom">
+            <div className="xp-stats">
+              <span className="xp-current">{Math.floor(xpInCurrentLevel)} XP</span>
+              <span className="xp-target">{xpNeededForLevel} XP</span>
+            </div>
+            <div className="progress-bar-container">
+              <div className="progress-bar" style={{ width: `${Math.min(progressPercent, 100)}%` }}></div>
+            </div>
+            <p className="level-text">Level {currentLevel} • {Math.floor(progressPercent)}% to Level {currentLevel + 1}</p>
+          </div>
         </div>
 
         {/* Streak */}
         <div className="profile-section">
-          <h3>Learning Streak</h3>
-          <StreakIndicator 
-            currentStreak={streakData?.current_streak || user?.current_streak || 0}
-            longestStreak={streakData?.longest_streak || user?.longest_streak || 0}
-          />
+          <h3>🔥 Learning Streak</h3>
+          <div className="streak-display">
+            <div className="streak-stat">
+              <div className="streak-icon">🔥</div>
+              <div className="streak-value">{streakData?.current_streak || user?.current_streak || 0}</div>
+              <div className="streak-label">Current Streak</div>
+            </div>
+            <div className="streak-stat">
+              <div className="streak-icon">🏆</div>
+              <div className="streak-value">{streakData?.longest_streak || user?.longest_streak || 0}</div>
+              <div className="streak-label">Longest Streak</div>
+            </div>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -162,6 +187,38 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
+
+        {/* Learning Assessment Results */}
+        {user?.learning_style && (
+          <div className="profile-section assessment-section">
+            <h3>📚 Learning Assessment</h3>
+            <div className="assessment-results-box">
+              <div className="learning-style-badge">
+                <div className="badge-icon">🎯</div>
+                <div className="badge-content">
+                  <div className="badge-label">Learning Style</div>
+                  <div className="badge-value">{user.learning_style}</div>
+                </div>
+              </div>
+              {user.assessment_score && (
+                <div className="assessment-details">
+                  <div className="assessment-stat">
+                    <span className="label">Score:</span>
+                    <span className="value">{user.assessment_score}</span>
+                  </div>
+                  {user.assessment_date && (
+                    <div className="assessment-stat">
+                      <span className="label">Assessed:</span>
+                      <span className="value">
+                        {new Date(user.assessment_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Recent Achievements */}
         {achievements && achievements.achievements?.length > 0 && (

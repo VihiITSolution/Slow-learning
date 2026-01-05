@@ -49,7 +49,7 @@ def get_lesson(lesson_id):
 @jwt_required()
 def start_lesson(lesson_id):
     """Start a lesson"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     
     # Check if lesson exists
     lesson = Lesson.query.get(lesson_id)
@@ -89,7 +89,7 @@ def start_lesson(lesson_id):
 @jwt_required()
 def complete_lesson(lesson_id):
     """Complete a lesson"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json()
     
     # Get lesson
@@ -142,7 +142,7 @@ def complete_lesson(lesson_id):
 @jwt_required()
 def update_progress(lesson_id):
     """Update lesson progress"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json()
     
     progress = Progress.query.filter_by(

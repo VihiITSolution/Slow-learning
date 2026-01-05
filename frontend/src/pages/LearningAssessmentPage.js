@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import api from '../services/api';
 import '../styles/LearningAssessment.css';
 
 const LearningAssessmentPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const studentInfo = location.state;
+  
   const [categories, setCategories] = useState({});
   const [answers, setAnswers] = useState({});
   const [results, setResults] = useState(null);
@@ -12,8 +16,14 @@ const LearningAssessmentPage = () => {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    // Redirect if no student selected
+    if (!studentInfo || (!studentInfo.studentId && !studentInfo.studentName)) {
+      toast.error('Please select a student first');
+      navigate('/student-selection');
+      return;
+    }
     fetchCategories();
-  }, []);
+  }, [studentInfo, navigate]);
 
   const fetchCategories = async () => {
     try {
@@ -38,11 +48,36 @@ const LearningAssessmentPage = () => {
     setSubmitting(true);
 
     try {
+      // Submit assessment
       const response = await api.post('/assessment/submit-assessment', { answers });
-      setResults(response.data);
+      
+      // Save results to user profile if student has an account
+      if (studentInfo.studentId) {
+        try {
+          await api.post('/assessment/save-to-profile', {
+            user_id: studentInfo.studentId,
+            learning_style: response.data.identified_category,
+            assessment_score: response.data.max_score,
+            total_questions: response.data.total_questions,
+            all_scores: response.data.scores
+          });
+          toast.success(`Assessment saved to ${studentInfo.studentName}'s profile!`);
+        } catch (error) {
+          console.error('Error saving to profile:', error);
+          toast.warning('Assessment completed but not saved to profile');
+        }
+      } else {
+        toast.success(`Assessment completed for ${studentInfo.studentName}!`);
+      }
+      
+      setResults({
+        ...response.data,
+        studentName: studentInfo.studentName,
+        studentId: studentInfo.studentId
+      });
     } catch (error) {
       console.error('Error submitting assessment:', error);
-      alert('Failed to submit assessment. Please try again.');
+      toast.error('Failed to submit assessment. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -60,11 +95,11 @@ const LearningAssessmentPage = () => {
   if (results) {
     return (
       <div className="assessment-results">
-        <button onClick={() => navigate('/learning-helper')} className="back-to-home-btn">
-          ← Back to Home
+        <button onClick={() => navigate('/student-selection')} className="back-to-home-btn">
+          ← Assess Another Student
         </button>
         <div className="results-header">
-          <h1>🎯 Assessment Results</h1>
+          <h1>🎯 Assessment Results for {results.studentName}</h1>
           <button onClick={handleReset} className="btn-secondary">New Assessment</button>
         </div>
 
@@ -75,6 +110,11 @@ const LearningAssessmentPage = () => {
           <div className="score-badge">
             Score: {results.max_score} / {results.total_questions}
           </div>
+          {results.studentId && (
+            <div className="saved-notice">
+              ✅ Results saved to student profile
+            </div>
+          )}
         </div>
 
         <div className="recommended-activities">
@@ -114,11 +154,14 @@ const LearningAssessmentPage = () => {
 
   return (
     <div className="learning-assessment-page">
-      <button onClick={() => navigate('/learning-helper')} className="back-to-home-btn">
-        ← Back to Home
+      <button onClick={() => navigate('/student-selection')} className="back-to-home-btn">
+        ← Back to Student Selection
       </button>
       <div className="assessment-header">
         <h1>🎓 Student Learning Style Assessment</h1>
+        <div className="student-badge">
+          Assessing: <strong>{studentInfo?.studentName}</strong>
+        </div>
         <p className="subtitle">
           Answer the following questions based on your observations of the student
         </p>

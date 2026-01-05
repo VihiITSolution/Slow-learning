@@ -23,12 +23,13 @@ const authService = {
   },
 
   // Register new user
-  register: async (username, email, password) => {
+  register: async (username, email, password, role = 'student') => {
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/register`, {
         username,
         email,
         password,
+        role,
       });
       
       if (response.data.access_token) {

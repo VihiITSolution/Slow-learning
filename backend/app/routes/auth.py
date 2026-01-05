@@ -29,7 +29,8 @@ def register():
     # Create new user
     user = User(
         username=data['username'],
-        email=data['email']
+        email=data['email'],
+        role=data.get('role', 'student')  # Default to student if not provided
     )
     user.set_password(data['password'])
     
@@ -37,7 +38,7 @@ def register():
     db.session.commit()
     
     # Generate access token
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity=str(user.id))
     
     return jsonify({
         'message': 'User registered successfully',
@@ -82,7 +83,7 @@ def login():
     db.session.commit()
     
     # Generate access token
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity=str(user.id))
     
     return jsonify({
         'message': 'Login successful',
@@ -95,7 +96,7 @@ def login():
 @jwt_required()
 def get_profile():
     """Get user profile"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     
     if not user:
@@ -103,12 +104,21 @@ def get_profile():
     
     return jsonify(user.to_dict()), 200
 
+@bp.route('/students', methods=['GET'])
+def get_students():
+    """Get all students (role=student) for teacher assessment"""
+    students = User.query.filter_by(role='student').all()
+    
+    return jsonify({
+        'students': [user.to_dict() for user in students],
+        'total': len(students)
+    }), 200
 
 @bp.route('/profile', methods=['PUT'])
 @jwt_required()
 def update_profile():
     """Update user profile"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     
     if not user:

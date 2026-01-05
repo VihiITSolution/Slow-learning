@@ -13,6 +13,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), default='student')  # 'student' or 'teacher'
     
     # Gamification fields
     total_xp = db.Column(db.Integer, default=0)
@@ -29,6 +30,12 @@ class User(db.Model):
     total_time_spent = db.Column(db.Integer, default=0)  # in minutes
     lessons_completed = db.Column(db.Integer, default=0)
     quizzes_taken = db.Column(db.Integer, default=0)
+    
+    # Learning Assessment Results
+    learning_style = db.Column(db.String(100))  # Primary learning style
+    assessment_score = db.Column(db.Integer)  # Last assessment score
+    assessment_date = db.Column(db.DateTime)  # When assessed
+    assessment_data = db.Column(db.JSON)  # Detailed assessment results
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -63,6 +70,7 @@ class User(db.Model):
             'id': self.id,
             'username': self.username,
             'email': self.email,
+            'role': self.role,
             'total_xp': self.total_xp,
             'level': self.level,
             'current_streak': self.current_streak,
@@ -70,5 +78,8 @@ class User(db.Model):
             'avatar_url': self.avatar_url,
             'lessons_completed': self.lessons_completed,
             'quizzes_taken': self.quizzes_taken,
+            'learning_style': self.learning_style,
+            'assessment_score': self.assessment_score,
+            'assessment_date': self.assessment_date.isoformat() if self.assessment_date else None,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

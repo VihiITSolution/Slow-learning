@@ -5,3 +5,5 @@ export { default as LessonsPage } from './LessonsPage';
 export { default as AchievementsPage } from './AchievementsPage';
 export { default as LeaderboardPage } from './LeaderboardPage';
 export { default as StudentDashboard } from './StudentDashboard';
+export { default as TeacherDashboardPage } from './TeacherDashboardPage';
+export { default as StudentSelectionPage } from './StudentSelectionPage';
