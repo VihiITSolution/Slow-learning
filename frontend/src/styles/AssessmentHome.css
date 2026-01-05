@@ -1,0 +1,258 @@
+/* Assessment Home Page - Exact match to original system */
+
+.assessment-home-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.welcome-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 40px;
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.welcome-header {
+  text-align: center;
+  margin-bottom: 50px;
+  position: relative;
+}
+
+.auth-buttons {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 10px;
+}
+
+.auth-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 25px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.login-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
+}
+
+.register-btn {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.register-btn:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-2px);
+}
+
+.animated-title {
+  font-size: 3em;
+  color: #2c3e50;
+  margin-bottom: 15px;
+  animation: bounce 1s ease-in-out;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.welcome-header .subtitle {
+  font-size: 1.3em;
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+.role-selection {
+  margin-bottom: 50px;
+}
+
+.role-selection h2 {
+  text-align: center;
+  color: #34495e;
+  font-size: 2em;
+  margin-bottom: 30px;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.choice-card {
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 3px solid transparent;
+}
+
+.choice-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+}
+
+.teacher-card {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  border-color: #ff6b6b;
+}
+
+.teacher-card:hover {
+  border-color: #ee5a6f;
+}
+
+.child-card {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  border-color: #667eea;
+}
+
+.child-card:hover {
+  border-color: #764ba2;
+}
+
+.choice-card .icon {
+  font-size: 5em;
+  margin-bottom: 20px;
+}
+
+.choice-card h3 {
+  font-size: 2em;
+  color: #2c3e50;
+  margin-bottom: 15px;
+}
+
+.choice-card p {
+  font-size: 1.1em;
+  color: #555;
+  margin-bottom: 25px;
+  line-height: 1.6;
+}
+
+.choice-card .button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 15px 40px;
+  border-radius: 50px;
+  font-size: 1.2em;
+  font-weight: 600;
+  display: inline-block;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.choice-card:hover .button {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.info-section {
+  background: #f8f9fa;
+  padding: 40px;
+  border-radius: 15px;
+  margin-top: 50px;
+}
+
+.info-section h3 {
+  text-align: center;
+  color: #2c3e50;
+  font-size: 2em;
+  margin-bottom: 30px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 25px;
+}
+
+.info-card {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.info-icon {
+  font-size: 3em;
+  margin-bottom: 15px;
+}
+
+.info-card h4 {
+  color: #667eea;
+  font-size: 1.4em;
+  margin-bottom: 10px;
+}
+
+.info-card p {
+  color: #555;
+  font-size: 1em;
+  line-height: 1.6;
+}
+
+.assessment-footer {
+  text-align: center;
+  padding: 30px 20px;
+  color: white;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .welcome-container {
+    padding: 20px;
+  }
+  
+  .animated-title {
+    font-size: 2em;
+  }
+  
+  .choices {
+    grid-template-columns: 1fr;
+  }
+  
+  .choice-card {
+    padding: 30px;
+  }
+}

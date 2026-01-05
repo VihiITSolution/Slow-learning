@@ -22,7 +22,7 @@ def create_app(config_name='development'):
     jwt.init_app(app)
     
     # Register blueprints
-    from app.routes import auth, lessons, gamification, analytics, recommendations
+    from app.routes import auth, lessons, gamification, analytics, recommendations, learning_assessment
     from app.routes.ml_analytics import ml_analytics_bp
     
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
@@ -30,6 +30,7 @@ def create_app(config_name='development'):
     app.register_blueprint(gamification.bp, url_prefix='/api/gamification')
     app.register_blueprint(analytics.bp, url_prefix='/api/analytics')
     app.register_blueprint(recommendations.bp, url_prefix='/api/recommendations')
+    app.register_blueprint(learning_assessment.bp, url_prefix='/api/assessment')
     app.register_blueprint(ml_analytics_bp)  # Already has url_prefix in blueprint
     
     # Create database tables

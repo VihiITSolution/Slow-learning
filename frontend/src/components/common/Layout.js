@@ -2,7 +2,7 @@ import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { FiHome, FiBook, FiAward, FiTrendingUp, FiUser, FiLogOut } from 'react-icons/fi';
-import { FaBrain } from 'react-icons/fa';
+import { FaBrain, FaGraduationCap } from 'react-icons/fa';
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -16,22 +16,25 @@ const Layout = () => {
         </div>
 
         <nav className="sidebar-nav">
-          <Link to="/dashboard" className="nav-link">
+          <Link to="/app/dashboard" className="nav-link">
             <FiHome /> Dashboard
           </Link>
-          <Link to="/lessons" className="nav-link">
+          <Link to="/app/lessons" className="nav-link">
             <FiBook /> Lessons
           </Link>
-          <Link to="/achievements" className="nav-link">
+          <Link to="/learning-helper" className="nav-link">
+            <FaGraduationCap /> Learning Helper
+          </Link>
+          <Link to="/app/achievements" className="nav-link">
             <FiAward /> Achievements
           </Link>
-          <Link to="/leaderboard" className="nav-link">
+          <Link to="/app/leaderboard" className="nav-link">
             <FiTrendingUp /> Leaderboard
           </Link>
-          <Link to="/ml-insights" className="nav-link">
+          <Link to="/app/ml-insights" className="nav-link">
             <FaBrain /> ML Insights
           </Link>
-          <Link to="/profile" className="nav-link">
+          <Link to="/app/profile" className="nav-link">
             <FiUser /> Profile
           </Link>
         </nav>

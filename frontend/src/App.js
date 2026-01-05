@@ -17,6 +17,9 @@ import ProfilePage from './pages/ProfilePage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import AchievementsPage from './pages/AchievementsPage';
 import MLInsightsPage from './pages/MLInsightsPage';
+import LearningAssessmentPage from './pages/LearningAssessmentPage';
+import InteractiveGamesPage from './pages/InteractiveGamesPage';
+import AssessmentHomePage from './pages/AssessmentHomePage';
 
 // Components
 import PrivateRoute from './components/common/PrivateRoute';
@@ -41,20 +44,26 @@ function App() {
       <AuthProvider>
         <Router>
           <Routes>
-            {/* Public Routes */}
+            {/* Public Routes - Learning Helper System */}
+            <Route path="/" element={<Navigate to="/learning-helper" replace />} />
+            <Route path="/learning-helper" element={<AssessmentHomePage />} />
+            <Route path="/learning-assessment" element={<LearningAssessmentPage />} />
+            <Route path="/interactive-games" element={<InteractiveGamesPage />} />
+            
+            {/* Authentication Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
 
-            {/* Private Routes */}
+            {/* Private Routes - Main App */}
             <Route
-              path="/"
+              path="/app"
               element={
                 <PrivateRoute>
                   <Layout />
                 </PrivateRoute>
               }
             >
-              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="lessons" element={<LessonsPage />} />
               <Route path="lessons/:id" element={<LessonDetailPage />} />
@@ -65,7 +74,7 @@ function App() {
             </Route>
 
             {/* Fallback */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/learning-helper" replace />} />
           </Routes>
         </Router>
         <ToastContainer position="top-right" autoClose={3000} />
