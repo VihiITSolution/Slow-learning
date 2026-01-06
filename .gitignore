@@ -42,7 +42,7 @@ venv.bak/
 *.sqlite3
 
 # Machine Learning Models
-*.pkl
+
 *.h5
 *.model
 *.joblib
