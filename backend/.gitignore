@@ -47,9 +47,7 @@ instance/
 .DS_Store
 Thumbs.db
 
-# ML Models
-app/ml_models/saved_models/*.pkl
-app/ml_models/saved_models/*.h5
+
 
 # Logs
 *.log
