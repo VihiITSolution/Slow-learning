@@ -12,7 +12,57 @@ bp = Blueprint('auth', __name__)
 
 @bp.route('/register', methods=['POST'])
 def register():
-    """Register a new user"""
+    """
+    Register a new user
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - email
+            - password
+          properties:
+            username:
+              type: string
+              example: johndoe
+            email:
+              type: string
+              example: johndoe@example.com
+            password:
+              type: string
+              example: SecurePass123!
+            role:
+              type: string
+              enum: [student, teacher]
+              default: student
+              example: student
+    responses:
+      201:
+        description: User registered successfully
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            user:
+              $ref: '#/definitions/User'
+            access_token:
+              type: string
+      400:
+        description: Missing required fields or invalid role
+        schema:
+          $ref: '#/definitions/Error'
+      409:
+        description: Username or email already exists
+        schema:
+          $ref: '#/definitions/Error'
+    """
     data = request.get_json()
     
     # Validate required fields
@@ -54,7 +104,48 @@ def register():
 
 @bp.route('/login', methods=['POST'])
 def login():
-    """Login user"""
+    """
+    Login user and update streak
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: johndoe
+            password:
+              type: string
+              example: SecurePass123!
+    responses:
+      200:
+        description: Login successful
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            user:
+              $ref: '#/definitions/User'
+            access_token:
+              type: string
+      400:
+        description: Missing username or password
+        schema:
+          $ref: '#/definitions/Error'
+      401:
+        description: Invalid credentials
+        schema:
+          $ref: '#/definitions/Error'
+    """
     data = request.get_json()
     
     # Validate required fields
@@ -100,7 +191,27 @@ def login():
 @bp.route('/profile', methods=['GET'])
 @jwt_required()
 def get_profile():
-    """Get user profile"""
+    """
+    Get current user profile
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: User profile
+        schema:
+          $ref: '#/definitions/User'
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: User not found
+        schema:
+          $ref: '#/definitions/Error'
+    """
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     
@@ -112,7 +223,34 @@ def get_profile():
 @bp.route('/students', methods=['GET'])
 @jwt_required()
 def get_students():
-    """Get all students (role=student) for teacher assessment"""
+    """
+    Get all students (teacher/admin only)
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: List of all students
+        schema:
+          type: object
+          properties:
+            students:
+              type: array
+              items:
+                $ref: '#/definitions/User'
+            total:
+              type: integer
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+      403:
+        description: Access denied - teacher or admin role required
+        schema:
+          $ref: '#/definitions/Error'
+    """
     # Only teachers and admins can access student list
     user_id = int(get_jwt_identity())
     current_user = User.query.get(user_id)

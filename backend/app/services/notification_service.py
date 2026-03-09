@@ -3,9 +3,12 @@ Notification Service
 Handles sending notifications to users for engagement interventions
 """
 from datetime import datetime
-from app import db
+from flask import current_app, render_template
+from flask_mail import Message
+from app import db, mail
 from app.models.user import User
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -219,7 +222,7 @@ class NotificationService:
     @staticmethod
     def _send_email_notification(user, notification):
         """
-        Send email notification
+        Send email notification using Flask-Mail
         
         Args:
             user: User object
@@ -228,24 +231,83 @@ class NotificationService:
         Returns:
             dict with status
         """
-        # TODO: Integrate with email service (SendGrid, AWS SES, etc.)
-        
         try:
-            # This would typically use an email service
-            # email_service.send(
-            #     to=user.email,
-            #     subject=notification['title'],
-            #     body=notification['message'],
-            #     html_template='engagement_notification.html'
-            # )
+            # Check if email is configured
+            if not current_app.config.get('MAIL_USERNAME'):
+                logger.warning("Email not configured - skipping email notification")
+                return {
+                    'channel': 'email',
+                    'status': 'skipped',
+                    'message': 'Email not configured'
+                }
             
-            logger.info(f"Email queued for {user.email}")
+            # Check if user has email
+            if not user.email:
+                logger.warning(f"User {user.id} has no email address")
+                return {
+                    'channel': 'email',
+                    'status': 'skipped',
+                    'message': 'User has no email address'
+                }
+            
+            # Determine bonus XP based on notification type
+            bonus_xp = None
+            if 'urgent' in notification.get('title', '').lower():
+                bonus_xp = 50
+            elif 'keep going' in notification.get('message', '').lower():
+                bonus_xp = 25
+            
+            # Build full action URL
+            base_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+            action_url = f"{base_url}/app{notification['action_url']}"
+            dashboard_url = f"{base_url}/app/dashboard"
+            settings_url = f"{base_url}/app/profile"
+            
+            # Get emoji for notification type
+            emoji_map = {
+                '🌟 We Miss You!': '🌟',
+                '💪 Keep Going!': '💪',
+                '📚 Your Learning Awaits': '📚',
+                '🏆 Amazing Progress!': '🏆',
+                '🔥 Don\'t Break Your Streak!': '🔥'
+            }
+            emoji = emoji_map.get(notification['title'], '✨')
+            
+            # Create email message
+            msg = Message(
+                subject=notification['title'],
+                recipients=[user.email],
+                sender=current_app.config['MAIL_DEFAULT_SENDER']
+            )
+            
+            # Render HTML template
+            msg.html = render_template(
+                'email/engagement_notification.html',
+                emoji=emoji,
+                title=notification['title'],
+                message=notification['message'],
+                action_text=notification['action_text'],
+                action_url=action_url,
+                dashboard_url=dashboard_url,
+                settings_url=settings_url,
+                bonus_xp=bonus_xp,
+                user_stats={
+                    'total_xp': user.total_xp,
+                    'level': user.level,
+                    'current_streak': user.current_streak
+                }
+            )
+            
+            # Send email
+            mail.send(msg)
+            
+            logger.info(f"Email sent to {user.email}")
             
             return {
                 'channel': 'email',
                 'status': 'sent',
                 'email': user.email,
-                'message': 'Email notification queued'
+                'message': 'Email notification sent successfully'
             }
         except Exception as e:
             logger.error(f"Failed to send email notification: {str(e)}")

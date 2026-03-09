@@ -25,6 +25,7 @@ class User(db.Model):
     # Avatar customization
     avatar_url = db.Column(db.String(255), default='default_avatar.png')
     avatar_items = db.Column(db.JSON, default=[])
+    profile_picture = db.Column(db.String(255))  # Uploaded profile picture filename
     
     # Engagement metrics
     total_time_spent = db.Column(db.Integer, default=0)  # in minutes

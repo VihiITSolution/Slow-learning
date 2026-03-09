@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authService, gamificationService } from '../services';
 import { toast } from 'react-toastify';
 import { FiEdit2, FiSave, FiMail, FiCalendar, FiTrendingUp } from 'react-icons/fi';
+import ProfilePictureUpload from '../components/common/ProfilePictureUpload';
 import '../styles/Profile.css';
 
 const ProfilePage = () => {
@@ -76,18 +77,34 @@ const ProfilePage = () => {
         {/* Profile Header */}
         <div className="profile-header-section">
           <div className="avatar-section">
-            <img 
-              src={avatarUrl || user?.avatar_url || '/default-avatar.png'} 
-              alt="Profile Avatar" 
-              className="profile-avatar"
-            />
-            {editing && (
-              <button 
-                onClick={() => setEditing(true)} 
-                className="edit-avatar-btn"
-              >
-                <FiEdit2 /> Change Avatar
-              </button>
+            {editing ? (
+              <ProfilePictureUpload
+                currentPicture={user?.profile_picture ? `/api/uploads/profile-pictures/${user.profile_picture}` : avatarUrl || user?.avatar_url}
+                onUploadSuccess={(fileUrl) => {
+                  if (fileUrl) {
+                    setAvatarUrl(fileUrl);
+                    toast.success('Profile picture updated!');
+                  } else {
+                    setAvatarUrl(user?.avatar_url);
+                    toast.success('Profile picture removed!');
+                  }
+                  queryClient.invalidateQueries(['profile']);
+                }}
+              />
+            ) : (
+              <>
+                <img 
+                  src={user?.profile_picture ? `/api/uploads/profile-pictures/${user.profile_picture}` : avatarUrl || user?.avatar_url || '/default-avatar.png'} 
+                  alt="Profile Avatar" 
+                  className="profile-avatar"
+                />
+                <button 
+                  onClick={() => setEditing(true)} 
+                  className="edit-avatar-btn"
+                >
+                  <FiEdit2 /> Change Avatar
+                </button>
+              </>
             )}
           </div>
 

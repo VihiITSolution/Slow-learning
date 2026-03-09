@@ -22,6 +22,23 @@ class Config:
     
     # CORS Configuration
     CORS_HEADERS = 'Content-Type'
+    
+    # Mail Configuration
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
+    MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'False').lower() == 'true'
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@slowlearning.edu')
+    MAIL_MAX_EMAILS = int(os.environ.get('MAIL_MAX_EMAILS', 50))
+    
+    # File Upload Configuration
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16MB default
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'}
+    PROFILE_PICTURE_FOLDER = os.path.join(UPLOAD_FOLDER, 'profiles')
+    ASSIGNMENT_FOLDER = os.path.join(UPLOAD_FOLDER, 'assignments')
 
 
 class DevelopmentConfig(Config):
