@@ -1,8 +1,13 @@
 """
 Main application entry point
 """
-from app import create_app
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+from app import create_app
 
 # Create Flask app
 app = create_app(os.environ.get('FLASK_ENV', 'development'))

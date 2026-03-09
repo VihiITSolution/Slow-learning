@@ -132,7 +132,6 @@ const DashboardPage = () => {
                         </Link>
                       </div>
                     )}
-                    </div>
                   </div>
                   
                   {/* Mini Games */}

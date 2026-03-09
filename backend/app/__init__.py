@@ -25,9 +25,17 @@ def create_app(config_name='development'):
     # Initialize extensions
     db.init_app(app)
     
-    # Configure CORS with specific origins
+    # Configure CORS with specific origins and proper preflight handling
     cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',')
-    CORS(app, resources={r"/api/*": {"origins": cors_origins}})
+    CORS(app, 
+         resources={r"/api/*": {
+             "origins": cors_origins,
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+             "allow_headers": ["Content-Type", "Authorization"],
+             "expose_headers": ["Content-Type", "Authorization"],
+             "supports_credentials": True,
+             "max_age": 3600
+         }})
     
     jwt.init_app(app)
     mail.init_app(app)

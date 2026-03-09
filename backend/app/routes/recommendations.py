@@ -18,6 +18,7 @@ recommender = LearningRecommender()
 
 
 @bp.route('/', methods=['GET'])
+@bp.route('/personalized', methods=['GET'])
 @jwt_required()
 def get_recommendations():
     """Get personalized lesson recommendations"""
