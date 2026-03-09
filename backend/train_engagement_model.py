@@ -10,6 +10,13 @@ import os
 # Add parent directory to path to allow imports
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
+# Load environment variables from .env file if it exists
+from pathlib import Path
+env_file = Path(__file__).parent / '.env'
+if env_file.exists():
+    from dotenv import load_dotenv
+    load_dotenv(env_file)
+
 # Import only the ML model components (no Flask dependencies)
 import numpy as np
 import pandas as pd
@@ -385,23 +392,257 @@ def train_with_synthetic_data(n_samples=1000, algorithm='auto'):
     print("="*60)
 
 
-def train_with_database_data():
+def train_with_database_data(algorithm='auto'):
     """
     Train model with real data from database
-    (To be implemented when database has sufficient historical data)
+    Extracts user activity metrics and engagement patterns
+    
+    Args:
+        algorithm: ML algorithm to use ('auto', 'logistic', 'svm', 'neural')
     """
-    print("Training with database data...")
-    print("NOTE: This feature requires a populated database with historical user activity.")
-    print("For now, please use synthetic data training.")
+    print("="*60)
+    print("TRAINING WITH REAL DATABASE DATA")
+    print("="*60)
+    print()
     
-    # TODO: Implement database data extraction
-    # 1. Connect to database
-    # 2. Query user activity data
-    # 3. Label engaged/disengaged users based on criteria
-    # 4. Create training DataFrame
-    # 5. Train model
-    
-    pass
+    try:
+        # Import Flask dependencies
+        from app import create_app, db
+        from app.models.user import User
+        from app.models.progress import Progress
+        from app.models.quiz import QuizAttempt
+        from sqlalchemy import func
+        from datetime import datetime, timedelta
+        
+        # Create Flask app context
+        app = create_app()
+        
+        with app.app_context():
+            print("Step 1: Extracting user data from database...")
+            
+            # Get all users
+            users = User.query.all()
+            
+            if len(users) < 10:
+                print(f"⚠ Warning: Only {len(users)} users found in database.")
+                print("For better model performance, consider using synthetic data or adding more users.")
+                print()
+            
+            training_data = []
+            current_time = datetime.now()
+            
+            for user in users:
+                # Skip admin/teacher accounts
+                if user.role in ['admin', 'teacher']:
+                    continue
+                
+                # Calculate engagement metrics
+                
+                # 1. Time spent today (approximate from recent progress entries)
+                today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                today_progress = Progress.query.filter(
+                    Progress.user_id == user.id,
+                    Progress.last_accessed >= today_start
+                ).all()
+                time_spent_today = sum([p.time_spent or 0 for p in today_progress]) / 60  # Convert to minutes
+                
+                # 2. Average quiz score
+                quiz_attempts = QuizAttempt.query.filter_by(user_id=user.id).all()
+                if quiz_attempts:
+                    avg_quiz_score = sum([q.score for q in quiz_attempts]) / len(quiz_attempts)
+                else:
+                    avg_quiz_score = 0
+                
+                # 3. Login streak (use current_streak from user)
+                login_streak = user.current_streak or 0
+                
+                # 4. Lessons completed this week
+                week_start = current_time - timedelta(days=7)
+                lessons_completed_week = Progress.query.filter(
+                    Progress.user_id == user.id,
+                    Progress.status == 'completed',
+                    Progress.completed_at >= week_start
+                ).count()
+                
+                # 5. Days inactive
+                if user.last_login:
+                    days_inactive = (current_time - user.last_login).days
+                else:
+                    days_inactive = 365  # No login recorded = very inactive
+                
+                # Determine engagement label based on multiple criteria
+                # A user is engaged if they meet at least 3 of these 5 criteria:
+                engagement_criteria = [
+                    time_spent_today >= 15,           # At least 15 min today
+                    avg_quiz_score >= 60,             # Average score >= 60%
+                    login_streak >= 2,                # Streak of 2+ days
+                    lessons_completed_week >= 1,      # At least 1 lesson/week
+                    days_inactive <= 3                # Active in last 3 days
+                ]
+                
+                criteria_met = sum(engagement_criteria)
+                engaged = 1 if criteria_met >= 3 else 0
+                
+                training_data.append({
+                    'user_id': user.id,
+                    'username': user.username,
+                    'time_spent_today': time_spent_today,
+                    'avg_quiz_score': avg_quiz_score,
+                    'login_streak': login_streak,
+                    'lessons_completed_week': lessons_completed_week,
+                    'days_inactive': days_inactive,
+                    'engaged': engaged
+                })
+            
+            if not training_data:
+                print("❌ No student users found in database!")
+                print("Please add some student users or use synthetic data.")
+                return
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(training_data)
+            
+            print(f"✓ Extracted data for {len(df)} users")
+            print(f"  - Engaged users: {df['engaged'].sum()}")
+            print(f"  - Disengaged users: {len(df) - df['engaged'].sum()}")
+            print()
+            
+            # Check if we have enough data and both classes
+            if len(df) < 5:
+                print("⚠ Warning: Too few users for reliable training (< 5)")
+                print("Consider using synthetic data or adding more users.")
+                return
+            
+            if df['engaged'].sum() == 0 or df['engaged'].sum() == len(df):
+                print("⚠ Warning: All users have the same engagement status!")
+                print("Model needs both engaged and disengaged users to train properly.")
+                print("Consider using synthetic data or waiting for more varied user activity.")
+                return
+            
+            # Show data statistics
+            print("Data Statistics:")
+            print(df[['time_spent_today', 'avg_quiz_score', 'login_streak', 
+                      'lessons_completed_week', 'days_inactive', 'engaged']].describe())
+            print()
+            
+            # Prepare features
+            feature_names = [
+                'time_spent_today',
+                'avg_quiz_score',
+                'login_streak',
+                'lessons_completed_week',
+                'days_inactive'
+            ]
+            
+            X = df[feature_names]
+            y = df['engaged']
+            
+            # Split data (with minimum 20% test or at least 1 sample)
+            test_size = max(0.2, min(2 / len(df), 0.4))  # Adaptive test size
+            
+            try:
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=test_size, random_state=42, stratify=y
+                )
+            except ValueError:
+                # If stratify fails (too few samples), split without stratify
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=test_size, random_state=42
+                )
+            
+            # Scale features
+            scaler = StandardScaler()
+            X_train_scaled = scaler.fit_transform(X_train)
+            X_test_scaled = scaler.transform(X_test)
+            
+            # Train model
+            print(f"Step 2: Training model (algorithm: {algorithm})...")
+            
+            if algorithm == 'auto':
+                model, best_algo, metrics = compare_models(
+                    X_train_scaled, y_train, X_test_scaled, y_test
+                )
+                algorithm = best_algo
+            else:
+                print(f"Training {algorithm} model...")
+                model = create_model(algorithm)
+                model.fit(X_train_scaled, y_train)
+                
+                # Evaluate
+                y_pred = model.predict(X_test_scaled)
+                metrics = {
+                    'algorithm': algorithm,
+                    'accuracy': accuracy_score(y_test, y_pred),
+                    'precision': precision_score(y_test, y_pred, average='weighted', zero_division=0),
+                    'recall': recall_score(y_test, y_pred, average='weighted', zero_division=0),
+                    'f1_score': f1_score(y_test, y_pred, average='weighted', zero_division=0)
+                }
+            
+            print("\n✓ Training completed!")
+            print()
+            
+            # Save model
+            model_dir = 'app/ml_models/saved_models'
+            os.makedirs(model_dir, exist_ok=True)
+            model_path = os.path.join(model_dir, 'engagement_model.pkl')
+            
+            model_data = {
+                'model': model,
+                'scaler': scaler,
+                'algorithm': algorithm,
+                'metrics': metrics,
+                'feature_names': feature_names,
+                'trained_with': 'real_data',
+                'training_date': datetime.now().isoformat(),
+                'num_samples': len(df)
+            }
+            
+            joblib.dump(model_data, model_path)
+            print(f"Model saved to: {model_path}")
+            print()
+            
+            # Display results
+            print("="*60)
+            print("TRAINING RESULTS")
+            print("="*60)
+            
+            if 'best_algorithm' in metrics:
+                print(f"\nBest Algorithm Selected: {metrics['best_algorithm'].upper()}")
+                print()
+                
+                print("Algorithm Comparison:")
+                print("-" * 60)
+                for algo in ['logistic', 'svm', 'neural']:
+                    if algo in metrics:
+                        m = metrics[algo]
+                        print(f"\n{algo.upper()}:")
+                        print(f"  Accuracy:  {m['accuracy']:.4f}")
+                        print(f"  Precision: {m['precision']:.4f}")
+                        print(f"  Recall:    {m['recall']:.4f}")
+                        print(f"  F1 Score:  {m['f1_score']:.4f}")
+            else:
+                print(f"\nAlgorithm: {metrics.get('algorithm', algorithm).upper()}")
+                print(f"Accuracy:  {metrics.get('accuracy', 0):.4f}")
+                print(f"Precision: {metrics.get('precision', 0):.4f}")
+                print(f"Recall:    {metrics.get('recall', 0):.4f}")
+                print(f"F1 Score:  {metrics.get('f1_score', 0):.4f}")
+            
+            print()
+            print(f"Training Samples: {len(X_train)}")
+            print(f"Test Samples: {len(X_test)}")
+            print()
+            print("="*60)
+            print("✓ Model training completed successfully with real data!")
+            print(f"Model saved to: {model_path}")
+            print("="*60)
+            
+    except ImportError as e:
+        print(f"❌ Error importing Flask dependencies: {e}")
+        print("Please ensure Flask app is properly configured.")
+    except Exception as e:
+        print(f"❌ Error during training: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == '__main__':
@@ -430,6 +671,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     if args.real_data:
-        train_with_database_data()
+        train_with_database_data(args.algorithm)
     else:
         train_with_synthetic_data(args.samples, args.algorithm)
