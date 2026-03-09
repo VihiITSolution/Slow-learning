@@ -110,11 +110,16 @@ def complete_lesson(lesson_id):
         )
         db.session.add(progress)
     
+    # Validate time_spent (prevent negative or unrealistic values)
+    time_spent = data.get('time_spent', 0)
+    if not isinstance(time_spent, (int, float)) or time_spent < 0 or time_spent > 86400:
+        return jsonify({'error': 'Invalid time_spent. Must be between 0 and 86400 seconds (24 hours)'}), 400
+    
     # Update progress
     progress.status = 'completed'
     progress.completion_percentage = 100
     progress.completed_at = datetime.utcnow()
-    progress.time_spent = data.get('time_spent', 0)
+    progress.time_spent = int(time_spent)
     
     # Award XP to user
     user = User.query.get(user_id)

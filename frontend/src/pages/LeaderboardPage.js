@@ -1,35 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
 
 const LeaderboardPage = () => {
-  const [timeframe, setTimeframe] = useState('allTime');
+  const { user } = useAuth();
+  const [timeframe, setTimeframe] = useState('all_time');
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample leaderboard data
-  const leaderboardData = {
-    allTime: [
-      { rank: 1, name: 'Sarah J.', xp: 5200, avatar: '👧', badge: '🏆' },
-      { rank: 2, name: 'Mike L.', xp: 4980, avatar: '👦', badge: '🥈' },
-      { rank: 3, name: 'Chloe B.', xp: 4650, avatar: '👧', badge: '🥉' },
-      { rank: 4, name: 'Emma W.', xp: 4200, avatar: '👧', badge: '⭐' },
-      { rank: 5, name: 'You', xp: 1450, avatar: '😊', badge: '🌟', isCurrentUser: true },
-      { rank: 6, name: 'Lucas M.', xp: 1300, avatar: '👦', badge: '✨' },
-      { rank: 7, name: 'Olivia K.', xp: 1150, avatar: '👧', badge: '💫' },
-      { rank: 8, name: 'Noah P.', xp: 980, avatar: '👦', badge: '🎯' },
-      { rank: 9, name: 'Ava T.', xp: 850, avatar: '👧', badge: '🎪' },
-      { rank: 10, name: 'Liam R.', xp: 720, avatar: '👦', badge: '🎨' }
-    ],
-    monthly: [
-      { rank: 1, name: 'You', xp: 450, avatar: '😊', badge: '🏆', isCurrentUser: true },
-      { rank: 2, name: 'Sarah J.', xp: 420, avatar: '👧', badge: '🥈' },
-      { rank: 3, name: 'Mike L.', xp: 380, avatar: '👦', badge: '🥉' }
-    ],
-    weekly: [
-      { rank: 1, name: 'You', xp: 150, avatar: '😊', badge: '🏆', isCurrentUser: true },
-      { rank: 2, name: 'Chloe B.', xp: 120, avatar: '👧', badge: '🥈' },
-      { rank: 3, name: 'Emma W.', xp: 95, avatar: '👧', badge: '🥉' }
-    ]
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [timeframe]);
+
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get(`/gamification/leaderboard?timeframe=${timeframe}&limit=20`);
+      setLeaderboard(response.data.leaderboard || []);
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const currentData = leaderboardData[timeframe];
 
   return (
     <div className="leaderboard-page">
@@ -43,8 +36,8 @@ const LeaderboardPage = () => {
       {/* Timeframe Buttons */}
       <div style={{display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '40px', flexWrap: 'wrap'}}>
         <button 
-          className={timeframe === 'allTime' ? 'btn-primary' : 'btn-secondary'}
-          onClick={() => setTimeframe('allTime')}
+          className={timeframe === 'all_time' ? 'btn-primary' : 'btn-secondary'}
+          onClick={() => setTimeframe('all_time')}
           style={{minWidth: '150px'}}
         >
           🌍 ALL TIME
@@ -66,13 +59,13 @@ const LeaderboardPage = () => {
       </div>
 
       {/* Current Rank Card */}
-      {currentData.find(entry => entry.isCurrentUser) && (
+      {!loading && user && (
         <div className="stat-card" style={{maxWidth: '600px', margin: '0 auto 40px', background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)'}}>
           <div className="stat-icon">😊</div>
-          <div className="stat-value">Rank #{currentData.find(entry => entry.isCurrentUser).rank}</div>
+          <div className="stat-value">Rank #{user.rank || 'N/A'}</div>
           <div className="stat-label">YOUR CURRENT RANK</div>
           <div style={{fontSize: '18px', fontWeight: '700', color: '#fff', marginTop: '8px'}}>
-            {currentData.find(entry => entry.isCurrentUser).xp} XP • Keep going! 💪
+            {user.total_xp || 0} XP • Keep going! 💪
           </div>
         </div>
       )}
@@ -83,82 +76,101 @@ const LeaderboardPage = () => {
           🌟 TOP LEARNERS 🌟
         </h2>
         
-        <div style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
-          {currentData.map((entry) => (
-            <div 
-              key={entry.rank}
-              className={entry.isCurrentUser ? 'leaderboard-item' : ''}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '20px',
-                background: entry.isCurrentUser 
-                  ? 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)' 
-                  : 'linear-gradient(135deg, #fff 0%, #f9f9f9 100%)',
-                borderRadius: '20px',
-                border: entry.isCurrentUser ? '5px solid #f97316' : '4px solid #fbbf24',
-                boxShadow: entry.isCurrentUser ? '0 8px 20px rgba(249, 115, 22, 0.4)' : '0 4px 10px rgba(0,0,0,0.1)',
-                transform: entry.isCurrentUser ? 'scale(1.02)' : 'scale(1)',
-                transition: 'all 0.3s ease'
-              }}
-            >
-              {/* Rank Badge */}
-              <div style={{
-                fontSize: '48px',
-                fontWeight: '900',
-                minWidth: '80px',
-                textAlign: 'center',
-                color: entry.isCurrentUser ? '#fff' : '#8b5cf6'
-              }}>
-                {entry.badge}
-              </div>
+        {loading ? (
+          <div style={{textAlign: 'center', padding: '40px'}}>
+            <div style={{fontSize: '48px', marginBottom: '20px'}}>⏳</div>
+            <p style={{fontSize: '18px', fontWeight: '600', color: '#666'}}>Loading leaderboard...</p>
+          </div>
+        ) : leaderboard.length > 0 ? (
+          <div style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+            {leaderboard.map((entry, index) => {
+              const isCurrentUser = user && entry.user_id === user.id;
+              const rankBadge = index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : '⭐';
+              
+              return (
+                <div 
+                  key={entry.user_id || index}
+                  className={isCurrentUser ? 'leaderboard-item' : ''}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '20px',
+                    background: isCurrentUser 
+                      ? 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)' 
+                      : 'linear-gradient(135deg, #fff 0%, #f9f9f9 100%)',
+                    borderRadius: '20px',
+                    border: isCurrentUser ? '5px solid #f97316' : '4px solid #fbbf24',
+                    boxShadow: isCurrentUser ? '0 8px 20px rgba(249, 115, 22, 0.4)' : '0 4px 10px rgba(0,0,0,0.1)',
+                    transform: isCurrentUser ? 'scale(1.02)' : 'scale(1)',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  {/* Rank Badge */}
+                  <div style={{
+                    fontSize: '48px',
+                    fontWeight: '900',
+                    minWidth: '80px',
+                    textAlign: 'center',
+                    color: isCurrentUser ? '#fff' : '#8b5cf6'
+                  }}>
+                    {rankBadge}
+                  </div>
 
-              {/* Avatar */}
-              <div style={{
-                fontSize: '52px',
-                minWidth: '70px',
-                textAlign: 'center'
-              }}>
-                {entry.avatar}
-              </div>
+                  {/* Avatar */}
+                  <div style={{
+                    fontSize: '52px',
+                    minWidth: '70px',
+                    textAlign: 'center'
+                  }}>
+                    {entry.avatar || '👤'}
+                  </div>
 
-              {/* Name */}
-              <div style={{
-                flex: 1,
-                fontSize: '24px',
-                fontWeight: '900',
-                color: entry.isCurrentUser ? '#fff' : '#333',
-                textTransform: 'uppercase'
-              }}>
-                {entry.name}
-                {entry.isCurrentUser && <span style={{marginLeft: '10px'}}>🎉</span>}
-              </div>
+                  {/* Name */}
+                  <div style={{
+                    flex: 1,
+                    fontSize: '24px',
+                    fontWeight: '900',
+                    color: isCurrentUser ? '#fff' : '#333',
+                    textTransform: 'uppercase'
+                  }}>
+                    {entry.username || entry.name || 'Anonymous'}
+                    {isCurrentUser && <span style={{marginLeft: '10px'}}>🎉</span>}
+                  </div>
 
-              {/* XP */}
-              <div style={{
-                fontSize: '28px',
-                fontWeight: '900',
-                color: entry.isCurrentUser ? '#fff' : '#f97316',
-                minWidth: '120px',
-                textAlign: 'right'
-              }}>
-                {entry.xp} XP
-              </div>
+                  {/* XP */}
+                  <div style={{
+                    fontSize: '28px',
+                    fontWeight: '900',
+                    color: isCurrentUser ? '#fff' : '#f97316',
+                    minWidth: '120px',
+                    textAlign: 'right'
+                  }}>
+                    {entry.total_xp || 0} XP
+                  </div>
 
-              {/* Rank Number */}
-              <div style={{
-                fontSize: '36px',
-                fontWeight: '900',
-                color: entry.isCurrentUser ? '#fff' : '#ec4899',
-                minWidth: '60px',
-                textAlign: 'center',
-                marginLeft: '15px'
-              }}>
-                #{entry.rank}
+                  {/* Rank Number */}
+                  <div style={{
+                    fontSize: '36px',
+                    fontWeight: '900',
+                    color: isCurrentUser ? '#fff' : '#ec4899',
+                    minWidth: '60px',
+                    textAlign: 'center',
+                    marginLeft: '15px'
+                  }}>
+                    #{entry.rank || index + 1}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
+        ) : (
+          <div style={{textAlign: 'center', padding: '40px'}}>
+            <div style={{fontSize: '48px', marginBottom: '20px'}}>📊</div>
+            <p style={{fontSize: '18px', fontWeight: '600', color: '#666'}}>
+              No leaderboard data available yet. Start learning to join! 🚀
+            </p>
+          </div>
+        )}
 
         {/* Motivational Message */}
         <div style={{

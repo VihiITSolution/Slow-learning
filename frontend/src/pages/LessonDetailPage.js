@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import DOMPurify from 'dompurify';
 import '../styles/App.css';
 
 function LessonDetailPage() {
@@ -89,7 +90,7 @@ function LessonDetailPage() {
           {lesson.content && (
             <div className="lesson-materials">
               <h3>Lesson Content</h3>
-              <div dangerouslySetInnerHTML={{ __html: lesson.content }} />
+              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lesson.content) }} />
             </div>
           )}
 

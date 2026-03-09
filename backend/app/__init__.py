@@ -6,6 +6,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config.config import config
+import os
 
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -18,7 +19,11 @@ def create_app(config_name='development'):
     
     # Initialize extensions
     db.init_app(app)
-    CORS(app)
+    
+    # Configure CORS with specific origins
+    cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',')
+    CORS(app, resources={r"/api/*": {"origins": cors_origins}})
+    
     jwt.init_app(app)
     
     # Register blueprints

@@ -1,16 +1,38 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import api from "../services/api";
+import authService from "../services/authService";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Add authentication logic here
-    console.log("Admin login attempt:", { email, password });
+    setError("");
+    setLoading(true);
+    
+    try {
+      // Use email as username for admin login
+      const response = await authService.login(email, password);
+      
+      // Check if user has admin or teacher role
+      if (response.user && (response.user.role === 'admin' || response.user.role === 'teacher')) {
+        // Redirect to admin dashboard
+        navigate('/admin/dashboard');
+      } else {
+        setError('Access denied. Admin or teacher role required.');
+        authService.logout();
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -47,6 +69,12 @@ export default function AdminLoginPage() {
                 </p>
 
                 <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
+                  {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                      <span className="block sm:inline">{error}</span>
+                    </div>
+                  )}
+                  
                   <label className="flex flex-col w-full flex-1">
                     <p className="text-text-light dark:text-text-dark text-base font-medium leading-normal pb-2">
                       Email Address
@@ -89,9 +117,10 @@ export default function AdminLoginPage() {
                   <div className="flex w-full pt-6 justify-center">
                     <button
                       type="submit"
-                      className="flex min-w-[84px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 flex-1 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 focus:ring-4 focus:ring-primary/30 transition-colors"
+                      disabled={loading}
+                      className="flex min-w-[84px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 flex-1 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 focus:ring-4 focus:ring-primary/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <span className="truncate">Admin Sign In</span>
+                      <span className="truncate">{loading ? 'Signing in...' : 'Admin Sign In'}</span>
                     </button>
                   </div>
 

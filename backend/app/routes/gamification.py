@@ -47,6 +47,11 @@ def unlock_achievement():
     if existing:
         return jsonify({'error': 'Achievement already unlocked'}), 409
     
+    # Validate XP bonus (prevent negative or excessive values)
+    xp_bonus = data.get('xp_bonus', 0)
+    if not isinstance(xp_bonus, (int, float)) or xp_bonus < 0 or xp_bonus > 10000:
+        return jsonify({'error': 'Invalid XP bonus. Must be between 0 and 10000'}), 400
+    
     # Create achievement
     achievement = Achievement(
         user_id=user_id,
@@ -54,7 +59,7 @@ def unlock_achievement():
         title=data.get('title', ''),
         description=data.get('description', ''),
         badge_icon=data.get('badge_icon', ''),
-        xp_bonus=data.get('xp_bonus', 0)
+        xp_bonus=int(xp_bonus)
     )
     
     db.session.add(achievement)

@@ -26,11 +26,16 @@ def register():
     if User.query.filter_by(email=data['email']).first():
         return jsonify({'error': 'Email already exists'}), 409
     
+    # Validate role (only allow student or teacher via registration)
+    role = data.get('role', 'student')
+    if role not in ['student', 'teacher']:
+        return jsonify({'error': 'Invalid role. Only student or teacher allowed'}), 400
+    
     # Create new user
     user = User(
         username=data['username'],
         email=data['email'],
-        role=data.get('role', 'student')  # Default to student if not provided
+        role=role
     )
     user.set_password(data['password'])
     
@@ -105,8 +110,16 @@ def get_profile():
     return jsonify(user.to_dict()), 200
 
 @bp.route('/students', methods=['GET'])
+@jwt_required()
 def get_students():
     """Get all students (role=student) for teacher assessment"""
+    # Only teachers and admins can access student list
+    user_id = int(get_jwt_identity())
+    current_user = User.query.get(user_id)
+    
+    if not current_user or current_user.role not in ['teacher', 'admin']:
+        return jsonify({'error': 'Access denied. Teacher or admin role required'}), 403
+    
     students = User.query.filter_by(role='student').all()
     
     return jsonify({

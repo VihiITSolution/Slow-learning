@@ -50,14 +50,23 @@ const ProfilePage = () => {
     'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie'
   ];
 
-  // Calculate XP for next level
+  // Calculate XP for next level - with null safety
   const currentLevel = user?.level || 1;
   const currentXP = user?.total_xp || 0;
   const xpForCurrentLevel = Math.pow(currentLevel - 1, 2) * 100;
   const xpForNextLevel = Math.pow(currentLevel, 2) * 100;
   const xpInCurrentLevel = currentXP - xpForCurrentLevel;
   const xpNeededForLevel = xpForNextLevel - xpForCurrentLevel;
-  const progressPercent = (xpInCurrentLevel / xpNeededForLevel) * 100;
+  const progressPercent = xpNeededForLevel > 0 ? (xpInCurrentLevel / xpNeededForLevel) * 100 : 0;
+
+  // Show loading state while user data is being fetched
+  if (!user) {
+    return (
+      <div className="profile-page">
+        <div className="loading">Loading profile...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="profile-page">

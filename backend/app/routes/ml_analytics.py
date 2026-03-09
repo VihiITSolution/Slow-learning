@@ -6,12 +6,27 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services.engagement_service import EngagementService
 from app.ml_models.engagement_predictor import EngagementPredictor, generate_synthetic_training_data
+from app.models.user import User
 import pandas as pd
 
 ml_analytics_bp = Blueprint('ml_analytics', __name__, url_prefix='/api/ml')
 
 # Initialize service
 engagement_service = EngagementService()
+
+
+def require_admin_or_teacher():
+    """Helper function to check if current user is admin or teacher"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+    
+    if not user or user.role not in ['admin', 'teacher']:
+        return jsonify({
+            'success': False,
+            'error': 'Access denied. Admin or teacher role required'
+        }), 403
+    
+    return None
 
 
 @ml_analytics_bp.route('/engagement/predict/<int:user_id>', methods=['GET'])
@@ -54,7 +69,7 @@ def predict_user_engagement(user_id):
 @jwt_required()
 def predict_all_engagement():
     """
-    Predict engagement for all users (Admin only)
+    Predict engagement for all users (Admin/Teacher only)
     
     GET /api/ml/engagement/predict-all
     
@@ -62,7 +77,10 @@ def predict_all_engagement():
         JSON with predictions for all users
     """
     try:
-        # TODO: Add admin role check
+        # Check admin/teacher role
+        auth_error = require_admin_or_teacher()
+        if auth_error:
+            return auth_error
         
         results = engagement_service.predict_all_users_engagement()
         
@@ -83,7 +101,7 @@ def predict_all_engagement():
 @jwt_required()
 def get_disengaged_users():
     """
-    Get list of disengaged users (Admin only)
+    Get list of disengaged users (Admin/Teacher only)
     
     GET /api/ml/engagement/disengaged?threshold=0.6
     
@@ -94,7 +112,10 @@ def get_disengaged_users():
         JSON with list of disengaged users
     """
     try:
-        # TODO: Add admin role check
+        # Check admin/teacher role
+        auth_error = require_admin_or_teacher()
+        if auth_error:
+            return auth_error
         
         threshold = float(request.args.get('threshold', 0.6))
         
@@ -120,7 +141,7 @@ def get_disengaged_users():
 @jwt_required()
 def get_engagement_statistics():
     """
-    Get overall engagement statistics (Admin only)
+    Get overall engagement statistics (Admin/Teacher only)
     
     GET /api/ml/engagement/statistics
     
@@ -128,7 +149,10 @@ def get_engagement_statistics():
         JSON with engagement statistics
     """
     try:
-        # TODO: Add admin role check
+        # Check admin/teacher role
+        auth_error = require_admin_or_teacher()
+        if auth_error:
+            return auth_error
         
         stats = engagement_service.get_engagement_statistics()
         
@@ -148,7 +172,7 @@ def get_engagement_statistics():
 @jwt_required()
 def trigger_engagement_actions(user_id):
     """
-    Manually trigger engagement actions for a user (Admin only)
+    Manually trigger engagement actions for a user (Admin/Teacher only)
     
     POST /api/ml/engagement/trigger-actions/<user_id>
     
@@ -156,7 +180,10 @@ def trigger_engagement_actions(user_id):
         JSON with actions taken
     """
     try:
-        # TODO: Add admin role check
+        # Check admin/teacher role
+        auth_error = require_admin_or_teacher()
+        if auth_error:
+            return auth_error
         
         # First, predict engagement
         prediction = engagement_service.predict_user_engagement(user_id)
@@ -181,7 +208,7 @@ def trigger_engagement_actions(user_id):
 @jwt_required()
 def auto_intervention():
     """
-    Automatically intervene with all disengaged users (Admin only)
+    Automatically intervene with all disengaged users (Admin/Teacher only)
     
     POST /api/ml/engagement/auto-intervention
     
@@ -195,7 +222,10 @@ def auto_intervention():
         JSON with intervention results
     """
     try:
-        # TODO: Add admin role check
+        # Check admin/teacher role
+        auth_error = require_admin_or_teacher()
+        if auth_error:
+            return auth_error
         
         data = request.get_json() or {}
         threshold = data.get('confidence_threshold', 0.6)
@@ -280,7 +310,10 @@ def train_model():
         JSON with training results
     """
     try:
-        # TODO: Add admin role check
+        # Check admin/teacher role
+        auth_error = require_admin_or_teacher()
+        if auth_error:
+            return auth_error
         
         data = request.get_json() or {}
         algorithm = data.get('algorithm', 'auto')
