@@ -271,6 +271,11 @@ const DashboardPage = () => {
                         🧠 ML INSIGHTS
                       </button>
                     </Link>
+                    <Link to="/app/progress-summary" style={{flex: 1, minWidth: '200px'}}>
+                      <button className="btn-primary" style={{width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'}}>
+                        📊 MY PROGRESS
+                      </button>
+                    </Link>
                   </div>
               </div>
     </div>

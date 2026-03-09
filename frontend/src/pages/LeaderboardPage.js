@@ -24,6 +24,10 @@ const LeaderboardPage = () => {
     }
   };
 
+  // Derive current user's rank from the leaderboard data
+  const myEntry = user ? leaderboard.find(e => e.user_id === user.id) : null;
+  const myRank = myEntry ? (myEntry.rank || leaderboard.indexOf(myEntry) + 1) : null;
+
   return (
     <div className="leaderboard-page">
       <div className="page-header">
@@ -62,7 +66,7 @@ const LeaderboardPage = () => {
       {!loading && user && (
         <div className="stat-card" style={{maxWidth: '600px', margin: '0 auto 40px', background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)'}}>
           <div className="stat-icon">😊</div>
-          <div className="stat-value">Rank #{user.rank || 'N/A'}</div>
+          <div className="stat-value">Rank #{myRank || 'N/A'}</div>
           <div className="stat-label">YOUR CURRENT RANK</div>
           <div style={{fontSize: '18px', fontWeight: '700', color: '#fff', marginTop: '8px'}}>
             {user.total_xp || 0} XP • Keep going! 💪

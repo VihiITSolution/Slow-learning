@@ -144,12 +144,12 @@ const TeacherDashboardPage = () => {
                     </div>
                   </div>
                   <div className="student-category">
-                    {latestResult?.learning_style ? (
+                    {(latestResult?.primary_learning_style || latestResult?.learning_style) ? (
                       <>
                         <span className="category-emoji">
-                          {getCategoryEmoji(latestResult.learning_style)}
+                          {getCategoryEmoji(latestResult.primary_learning_style || latestResult.learning_style)}
                         </span>
-                        <span className="category-name">{latestResult.learning_style}</span>
+                        <span className="category-name">{latestResult.primary_learning_style || latestResult.learning_style}</span>
                       </>
                     ) : (
                       <span className="no-category">No category yet</span>
@@ -188,7 +188,7 @@ const TeacherDashboardPage = () => {
                     <td>{result.student_name}</td>
                     <td>
                       <span className="category-badge">
-                        {getCategoryEmoji(result.learning_style)} {result.learning_style}
+                        {getCategoryEmoji(result.primary_learning_style || result.learning_style)} {result.primary_learning_style || result.learning_style}
                       </span>
                     </td>
                     <td className="score">{result.total_score || 0}</td>
@@ -222,6 +222,11 @@ const TeacherDashboardPage = () => {
             <div className="action-icon">🎮</div>
             <h3>View Games</h3>
             <p>See all interactive learning games</p>
+          </Link>
+          <Link to="/teacher/ml-reports" className="action-card" style={{background:'linear-gradient(135deg,#eef2ff,#f5f3ff)',borderColor:'#c7d2fe'}}>
+            <div className="action-icon">🧠</div>
+            <h3>ML Class Report</h3>
+            <p>AI engagement analysis for all students</p>
           </Link>
           <button className="action-card" onClick={fetchTeacherData}>
             <div className="action-icon">🔄</div>

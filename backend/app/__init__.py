@@ -20,13 +20,14 @@ swagger = Swagger()
 def create_app(config_name='development'):
     """Create and configure the Flask application"""
     app = Flask(__name__)
+    app.url_map.strict_slashes = False
     app.config.from_object(config[config_name])
     
     # Initialize extensions
     db.init_app(app)
     
     # Configure CORS with specific origins and proper preflight handling
-    cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',')
+    cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://localhost:3001').split(',')
     CORS(app, 
          resources={r"/api/*": {
              "origins": cors_origins,
@@ -61,8 +62,15 @@ def create_app(config_name='development'):
     app.register_blueprint(uploads.bp)  # Already has url_prefix in blueprint
     app.register_blueprint(ml_analytics_bp)  # Already has url_prefix in blueprint
     
-    # Create database tables
+    # Create database tables and seed initial data
     with app.app_context():
         db.create_all()
+        try:
+            import sys as _sys
+            _sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from seed_lessons import seed as seed_lessons
+            seed_lessons()
+        except Exception as e:
+            print(f"[seed] Warning: {e}")
     
     return app

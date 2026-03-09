@@ -2,7 +2,7 @@
 Authentication Routes
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
 from app import db
 from app.models.user import User
 from datetime import datetime, timedelta
@@ -234,45 +234,22 @@ def get_profile():
     return jsonify(user.to_dict()), 200
 
 @bp.route('/students', methods=['GET'])
-@jwt_required()
 def get_students():
     """
     Get all students (teacher/admin only)
-    ---
-    tags:
-      - Authentication
-    security:
-      - Bearer: []
-    responses:
-      200:
-        description: List of all students
-        schema:
-          type: object
-          properties:
-            students:
-              type: array
-              items:
-                $ref: '#/definitions/User'
-            total:
-              type: integer
-      401:
-        description: Unauthorized - invalid or missing token
-        schema:
-          $ref: '#/definitions/Error'
-      403:
-        description: Access denied - teacher or admin role required
-        schema:
-          $ref: '#/definitions/Error'
     """
-    # Only teachers and admins can access student list
-    user_id = int(get_jwt_identity())
-    current_user = User.query.get(user_id)
-    
-    if not current_user or current_user.role not in ['teacher', 'admin']:
-        return jsonify({'error': 'Access denied. Teacher or admin role required'}), 403
-    
+    # Try to verify JWT — if missing/invalid, return empty list (page is accessible publicly)
+    try:
+        verify_jwt_in_request()
+        user_id = int(get_jwt_identity())
+        current_user = User.query.get(user_id)
+        if not current_user or current_user.role not in ['teacher', 'admin']:
+            return jsonify({'students': [], 'total': 0}), 200
+    except Exception:
+        return jsonify({'students': [], 'total': 0}), 200
+
     students = User.query.filter_by(role='student').all()
-    
+
     return jsonify({
         'students': [user.to_dict() for user in students],
         'total': len(students)

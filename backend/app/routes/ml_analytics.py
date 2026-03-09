@@ -414,14 +414,28 @@ def train_model():
         algorithm = data.get('algorithm', 'auto')
         use_synthetic = data.get('use_synthetic_data', True)
         n_samples = data.get('n_samples', 1000)
-        
-        # Get or generate training data
-        if use_synthetic:
-            training_data = generate_synthetic_training_data(n_samples)
+
+        if not use_synthetic:
+            # Try to extract real data from the database
+            real_data = engagement_service.extract_training_data_from_db()
+            if real_data is not None and len(real_data) >= 10:
+                # Supplement with synthetic data to ensure enough samples for training
+                synthetic_data = generate_synthetic_training_data(max(n_samples - len(real_data), 200))
+                import pandas as pd
+                training_data = pd.concat([real_data, synthetic_data], ignore_index=True)
+                data_source = f'real ({len(real_data)} samples) + synthetic ({len(synthetic_data)} samples)'
+            elif real_data is not None:
+                # Too few real users — mix in more synthetic
+                synthetic_data = generate_synthetic_training_data(n_samples)
+                import pandas as pd
+                training_data = pd.concat([real_data, synthetic_data], ignore_index=True)
+                data_source = f'real ({len(real_data)} samples) + synthetic ({len(synthetic_data)} samples)'
+            else:
+                training_data = generate_synthetic_training_data(n_samples)
+                data_source = f'synthetic only ({n_samples} samples) — no real data yet'
         else:
-            # TODO: Extract real training data from database
-            # For now, use synthetic data
             training_data = generate_synthetic_training_data(n_samples)
+            data_source = f'synthetic ({n_samples} samples)'
         
         # Train model
         predictor = EngagementPredictor(algorithm=algorithm)
@@ -430,7 +444,8 @@ def train_model():
         return jsonify({
             'success': True,
             'data': results,
-            'message': 'Model trained successfully'
+            'message': 'Model trained successfully',
+            'data_source': data_source
         }), 200
         
     except Exception as e:
@@ -481,6 +496,77 @@ def test_model():
             'success': False,
             'error': f'Prediction failed: {str(e)}'
         }), 500
+
+
+@ml_analytics_bp.route('/engagement/my-report', methods=['GET'])
+@jwt_required()
+def my_engagement_report():
+    """Get the logged-in student's own engagement summary (visible to all authenticated users)"""
+    try:
+        user_id = int(get_jwt_identity())
+        result = engagement_service.predict_user_engagement(user_id)
+
+        # Fetch personalized lesson recommendations
+        from app.ml_models.learning_recommender import LearningRecommender
+        from app.models.lesson import Lesson
+        from app.models.progress import Progress
+        recommender = LearningRecommender()
+        lessons = Lesson.query.filter_by(is_active=True).all()
+        completed_ids = [
+            p.lesson_id for p in Progress.query.filter_by(user_id=user_id, status='completed').all()
+        ]
+        lessons_df = pd.DataFrame([l.to_dict() for l in lessons])
+        recs = recommender.get_content_based_recommendations(completed_ids, lessons_df, n_recommendations=5) if not lessons_df.empty else []
+
+        result['recommendations'] = recs
+        return jsonify({'success': True, 'data': result}), 200
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Failed to get report: {str(e)}'}), 500
+
+
+@ml_analytics_bp.route('/engagement/class-report', methods=['GET'])
+@jwt_required()
+def class_report():
+    """Full class report for teachers — every student's engagement, metrics and recommendations"""
+    try:
+        auth_error = require_admin_or_teacher()
+        if auth_error:
+            return auth_error
+
+        from app.ml_models.learning_recommender import LearningRecommender
+        from app.models.lesson import Lesson
+        from app.models.progress import Progress
+        recommender = LearningRecommender()
+        lessons = Lesson.query.filter_by(is_active=True).all()
+        lessons_df = pd.DataFrame([l.to_dict() for l in lessons])
+
+        all_predictions = engagement_service.predict_all_users_engagement()
+        stats = engagement_service.get_engagement_statistics()
+
+        students = []
+        for pred in all_predictions:
+            uid = pred.get('user_info', {}).get('user_id') or pred.get('user_id')
+            if not uid:
+                continue
+            completed_ids = [
+                p.lesson_id for p in Progress.query.filter_by(user_id=uid, status='completed').all()
+            ]
+            recs = recommender.get_content_based_recommendations(completed_ids, lessons_df, n_recommendations=3) if not lessons_df.empty else []
+            students.append({**pred, 'recommendations': recs})
+
+        # Sort: disengaged critical first, then by confidence descending
+        risk_order = {'critical': 0, 'high': 1, 'moderate': 2, 'moderate-low': 3, 'low': 4}
+        students.sort(key=lambda x: (
+            0 if not x.get('engaged') else 1,
+            risk_order.get(x.get('risk_level', 'low'), 5),
+            -x.get('confidence', 0)
+        ))
+
+        return jsonify({'success': True, 'data': {'students': students, 'stats': stats}}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Class report failed: {str(e)}'}), 500
 
 
 @ml_analytics_bp.route('/health', methods=['GET'])

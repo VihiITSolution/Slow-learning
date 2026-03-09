@@ -89,23 +89,31 @@ export const AuthProvider = ({ children }) => {
 
   // On mount: Check localStorage for existing session and hydrate state
   useEffect(() => {
-    // Attempt to restore session from localStorage
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
     
     if (token && userData) {
       try {
-        // Parse stored user data and restore session
         setUser(JSON.parse(userData));
       } catch (error) {
-        // Clear corrupted data if JSON parse fails
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setLoading(false);
+        return;
       }
+      // Always fetch fresh data from API so XP/level are never stale
+      import('../services/api').then(({ default: api }) => {
+        api.get('/auth/profile')
+          .then(res => {
+            setUser(res.data);
+            localStorage.setItem('user', JSON.stringify(res.data));
+          })
+          .catch(() => {}) // keep stale data if request fails (offline)
+          .finally(() => setLoading(false));
+      });
+    } else {
+      setLoading(false);
     }
-    
-    // Mark loading complete - app can now render
-    setLoading(false);
   }, []);
 
   /**
@@ -180,6 +188,14 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
+  const refreshUser = async () => {
+    try {
+      const { default: api } = await import('../services/api');
+      const response = await api.get('/auth/profile');
+      updateUser(response.data);
+    } catch (_) {}
+  };
+
   // Context value provided to all consumers via useAuth()
   const value = {
     user,
@@ -187,6 +203,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
+    refreshUser,
     isAuthenticated: !!user,  // Convenience boolean for conditional rendering
   };
 

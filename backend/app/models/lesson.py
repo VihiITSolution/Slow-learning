@@ -53,5 +53,6 @@ class Lesson(db.Model):
             'prerequisites': self.prerequisites,
             'thumbnail_url': self.thumbnail_url,
             'video_url': self.video_url,
+            'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

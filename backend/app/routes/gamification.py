@@ -162,7 +162,8 @@ def get_leaderboard():
                   avatar_url:
                     type: string
     """
-    period = request.args.get('period', 'all_time')  # daily, weekly, monthly, all_time
+    # Accept both 'period' and 'timeframe' for compatibility
+    period = request.args.get('period') or request.args.get('timeframe', 'all_time')
     limit = request.args.get('limit', 10, type=int)
     
     if period == 'all_time':
@@ -175,6 +176,7 @@ def get_leaderboard():
                 'rank': rank,
                 'user_id': user.id,
                 'username': user.username,
+                'total_xp': user.total_xp,
                 'score': user.total_xp,
                 'level': user.level,
                 'avatar_url': user.avatar_url

@@ -124,12 +124,12 @@ class EngagementService:
     
     def predict_all_users_engagement(self):
         """
-        Predict engagement for all users
+        Predict engagement for all students (excludes teachers and admins)
         
         Returns:
-            list of prediction results for all users
+            list of prediction results for all students
         """
-        users = User.query.all()
+        users = User.query.filter_by(role='student').all()
         results = []
         
         for user in users:
@@ -311,3 +311,45 @@ class EngagementService:
             'average_confidence': avg_confidence,
             'timestamp': datetime.utcnow().isoformat()
         }
+
+    def extract_training_data_from_db(self):
+        """
+        Extract labeled training data from real student interactions in the DB.
+        Labels a user as engaged=1 if they have recent activity and decent quiz scores,
+        disengaged=0 otherwise.
+
+        Returns:
+            pandas DataFrame with feature columns + 'engaged' label, or None if too few users.
+        """
+        import pandas as pd
+
+        users = User.query.filter_by(role='student').all()
+        rows = []
+
+        for user in users:
+            try:
+                features = self.extract_user_features(user.id)
+            except Exception:
+                continue
+
+            # Label heuristic: engaged if active recently with some learning activity
+            lessons_ok = features['lessons_completed_week'] > 0
+            quiz_ok = features['avg_quiz_score'] >= 50
+            inactive_ok = features['days_inactive'] <= 2
+            streak_ok = features['login_streak'] >= 1
+
+            engaged = 1 if (lessons_ok or streak_ok) and (quiz_ok or inactive_ok) else 0
+
+            rows.append({
+                'time_spent_today': features['time_spent_today'],
+                'avg_quiz_score': features['avg_quiz_score'],
+                'login_streak': features['login_streak'],
+                'lessons_completed_week': features['lessons_completed_week'],
+                'days_inactive': features['days_inactive'],
+                'engaged': engaged
+            })
+
+        if len(rows) < 1:
+            return None
+
+        return pd.DataFrame(rows)
