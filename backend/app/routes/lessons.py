@@ -15,7 +15,42 @@ bp = Blueprint('lessons', __name__)
 @bp.route('/', methods=['GET'])
 @jwt_required()
 def get_lessons():
-    """Get all lessons with optional filtering"""
+    """
+    Get all active lessons with optional filtering
+    ---
+    tags:
+      - Lessons
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: category
+        type: string
+        required: false
+        description: Filter by lesson category
+        example: math
+      - in: query
+        name: difficulty
+        type: string
+        required: false
+        description: Filter by difficulty level
+        enum: [beginner, intermediate, advanced]
+        example: beginner
+    responses:
+      200:
+        description: List of lessons
+        schema:
+          type: object
+          properties:
+            lessons:
+              type: array
+              items:
+                $ref: '#/definitions/Lesson'
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+    """
     category = request.args.get('category')
     difficulty = request.args.get('difficulty')
     
@@ -36,7 +71,34 @@ def get_lessons():
 @bp.route('/<int:lesson_id>', methods=['GET'])
 @jwt_required()
 def get_lesson(lesson_id):
-    """Get a specific lesson"""
+    """
+    Get a specific lesson by ID
+    ---
+    tags:
+      - Lessons
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: lesson_id
+        type: integer
+        required: true
+        description: Lesson ID
+        example: 1
+    responses:
+      200:
+        description: Lesson details
+        schema:
+          $ref: '#/definitions/Lesson'
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Lesson not found
+        schema:
+          $ref: '#/definitions/Error'
+    """
     lesson = Lesson.query.get(lesson_id)
     
     if not lesson:
@@ -48,7 +110,40 @@ def get_lesson(lesson_id):
 @bp.route('/<int:lesson_id>/start', methods=['POST'])
 @jwt_required()
 def start_lesson(lesson_id):
-    """Start a lesson"""
+    """
+    Start a lesson (create or update progress)
+    ---
+    tags:
+      - Lessons
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: lesson_id
+        type: integer
+        required: true
+        description: Lesson ID
+        example: 1
+    responses:
+      200:
+        description: Lesson started successfully
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            progress:
+              type: object
+              description: Progress record
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Lesson not found
+        schema:
+          $ref: '#/definitions/Error'
+    """
     user_id = int(get_jwt_identity())
     
     # Check if lesson exists
@@ -88,7 +183,63 @@ def start_lesson(lesson_id):
 @bp.route('/<int:lesson_id>/complete', methods=['POST'])
 @jwt_required()
 def complete_lesson(lesson_id):
-    """Complete a lesson"""
+    """
+    Complete a lesson and award XP
+    ---
+    tags:
+      - Lessons
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: lesson_id
+        type: integer
+        required: true
+        description: Lesson ID
+        example: 1
+      - in: body
+        name: body
+        required: false
+        schema:
+          type: object
+          properties:
+            time_spent:
+              type: integer
+              description: Time spent in seconds (0-86400)
+              example: 1200
+    responses:
+      200:
+        description: Lesson completed successfully
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            progress:
+              type: object
+            xp_earned:
+              type: integer
+            total_xp:
+              type: integer
+            level:
+              type: integer
+            leveled_up:
+              type: boolean
+            new_level:
+              type: integer
+      400:
+        description: Invalid time_spent value
+        schema:
+          $ref: '#/definitions/Error'
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Lesson not found
+        schema:
+          $ref: '#/definitions/Error'
+    """
     user_id = int(get_jwt_identity())
     data = request.get_json()
     

@@ -15,7 +15,43 @@ bp = Blueprint('gamification', __name__)
 @bp.route('/achievements', methods=['GET'])
 @jwt_required()
 def get_achievements():
-    """Get user's achievements"""
+    """
+    Get user's unlocked achievements
+    ---
+    tags:
+      - Gamification
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: List of user achievements
+        schema:
+          type: object
+          properties:
+            achievements:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  achievement_type:
+                    type: string
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  badge_icon:
+                    type: string
+                  xp_bonus:
+                    type: integer
+                  earned_at:
+                    type: string
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+    """
     user_id = int(get_jwt_identity())
     
     achievements = Achievement.query.filter_by(user_id=user_id).order_by(
@@ -79,7 +115,53 @@ def unlock_achievement():
 
 @bp.route('/leaderboard', methods=['GET'])
 def get_leaderboard():
-    """Get leaderboard rankings"""
+    """
+    Get leaderboard rankings by period
+    ---
+    tags:
+      - Gamification
+    parameters:
+      - in: query
+        name: period
+        type: string
+        required: false
+        default: all_time
+        enum: [daily, weekly, monthly, all_time]
+        description: Leaderboard period
+        example: weekly
+      - in: query
+        name: limit
+        type: integer
+        required: false
+        default: 10
+        description: Maximum number of entries to return
+        example: 10
+    responses:
+      200:
+        description: Leaderboard rankings
+        schema:
+          type: object
+          properties:
+            period:
+              type: string
+            leaderboard:
+              type: array
+              items:
+                type: object
+                properties:
+                  rank:
+                    type: integer
+                  user_id:
+                    type: integer
+                  username:
+                    type: string
+                  score:
+                    type: integer
+                  level:
+                    type: integer
+                  avatar_url:
+                    type: string
+    """
     period = request.args.get('period', 'all_time')  # daily, weekly, monthly, all_time
     limit = request.args.get('limit', 10, type=int)
     
@@ -130,7 +212,38 @@ def get_leaderboard():
 @bp.route('/streak', methods=['GET'])
 @jwt_required()
 def get_streak():
-    """Get user's streak information"""
+    """
+    Get user's login streak information
+    ---
+    tags:
+      - Gamification
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: User streak information
+        schema:
+          type: object
+          properties:
+            current_streak:
+              type: integer
+              description: Current consecutive login streak
+            longest_streak:
+              type: integer
+              description: Longest streak achieved
+            last_login:
+              type: string
+              format: date-time
+              description: Last login timestamp (ISO 8601)
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: User not found
+        schema:
+          $ref: '#/definitions/Error'
+    """
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     

@@ -31,7 +31,9 @@ def create_app(config_name='development'):
     
     jwt.init_app(app)
     mail.init_app(app)
-    swagger.init_app(app, config=swagger_config, template=swagger_template)
+    
+    # Initialize Swagger - pass config during Swagger() instantiation
+    Swagger(app, config=swagger_config, template=swagger_template)
     
     # Create upload folders if they don't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)

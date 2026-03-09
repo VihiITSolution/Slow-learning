@@ -34,11 +34,63 @@ def require_admin_or_teacher():
 def predict_user_engagement(user_id):
     """
     Predict engagement level for a specific user
-    
-    GET /api/ml/engagement/predict/<user_id>
-    
-    Returns:
-        JSON with engagement prediction and recommendations
+    ---
+    tags:
+      - ML Analytics
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: user_id
+        type: integer
+        required: true
+        description: User ID to predict engagement for
+        example: 1
+    responses:
+      200:
+        description: Engagement prediction successful
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            data:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+                engagement_level:
+                  type: string
+                  enum: [high, medium, low]
+                confidence:
+                  type: number
+                  format: float
+                recommendations:
+                  type: array
+                  items:
+                    type: string
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: User not found
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            error:
+              type: string
+      500:
+        description: Prediction failed
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            error:
+              type: string
     """
     try:
         # Check if current user has permission (admin or self)
@@ -70,11 +122,54 @@ def predict_user_engagement(user_id):
 def predict_all_engagement():
     """
     Predict engagement for all users (Admin/Teacher only)
-    
-    GET /api/ml/engagement/predict-all
-    
-    Returns:
-        JSON with predictions for all users
+    ---
+    tags:
+      - ML Analytics
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Predictions for all users
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                  username:
+                    type: string
+                  engagement_level:
+                    type: string
+                  confidence:
+                    type: number
+      401:
+        description: Unauthorized - invalid or missing token
+        schema:
+          $ref: '#/definitions/Error'
+      403:
+        description: Access denied - admin or teacher role required
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            error:
+              type: string
+      500:
+        description: Prediction failed
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            error:
+              type: string
     """
     try:
         # Check admin/teacher role
