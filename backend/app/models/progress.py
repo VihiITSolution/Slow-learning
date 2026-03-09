@@ -1,5 +1,47 @@
 """
 Progress Tracking Model
+
+Records user progress through individual lessons. Enables:
+- Resume functionality (pick up where you left off)
+- Completion tracking (what's done vs. pending)
+- Time analytics (study duration insights)
+- Performance measurement (scores, attempts)
+
+Each user-lesson pair has at most one Progress record.
+
+Status Flow:
+    not_started -> in_progress -> completed
+    
+Attributes:
+    id (int): Primary key
+    user_id (int): Student working on lesson (FK to users)
+    lesson_id (int): Lesson being tracked (FK to lessons)
+    
+    status (str): Current state
+        - 'not_started': Lesson opened but not begun
+        - 'in_progress': Partial completion
+        - 'completed': Fully finished
+        
+    completion_percentage (int): 0-100, granular progress within lesson
+    time_spent (int): Total seconds spent on this lesson
+    
+    Timestamps:
+        started_at: When first accessed
+        completed_at: When finished (if completed)
+        last_accessed: Most recent interaction
+        
+    Performance:
+        attempts (int): Number of tries at lesson content
+        score (float): Final score/grade if applicable
+        
+Relationships:
+    user: Many-to-one with User (student)
+    lesson: Many-to-one with Lesson (content)
+    
+Indexes:
+    - (user_id, lesson_id): Fast lookups of "has user done this lesson?"
+    - user_id: User's full progress history
+    - lesson_id: All students who attempted lesson
 """
 from app import db
 from datetime import datetime
@@ -27,7 +69,20 @@ class Progress(db.Model):
     score = db.Column(db.Float)
     
     def to_dict(self):
-        """Convert progress to dictionary"""
+        """
+        Serialize progress to dictionary for JSON responses.
+        
+        Returns:
+            dict: Progress data including:
+                - status: Current lesson state
+                - completion_percentage: 0-100 progress
+                - time_spent: Seconds invested
+                - timestamps: ISO 8601 formatted dates
+                - score: Performance metric
+                
+        Note:
+            All datetime fields converted to ISO format for frontend
+        """
         return {
             'id': self.id,
             'user_id': self.user_id,

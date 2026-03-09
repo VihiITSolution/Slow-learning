@@ -155,30 +155,43 @@ def login():
     # Find user
     user = User.query.filter_by(username=data['username']).first()
     
+    # Verify credentials with constant-time comparison (prevents timing attacks)
     if not user or not user.check_password(data['password']):
         return jsonify({'error': 'Invalid credentials'}), 401
     
-    # Update last login and check streak
+    # === Streak Calculation Logic ===
+    # Daily streaks motivate consistent learning by rewarding consecutive logins
+    # Algorithm: Compare current date with last login to determine streak behavior
+    
     today = datetime.utcnow().date()
     last_login_date = user.last_login.date() if user.last_login else None
     
     if last_login_date:
+        # Calculate days elapsed since last login
         days_diff = (today - last_login_date).days
+        
         if days_diff == 1:
-            # Consecutive day login
+            # Case 1: Consecutive day login (yesterday -> today)
+            # Increment streak and check if it's a new personal record
             user.current_streak += 1
             if user.current_streak > user.longest_streak:
-                user.longest_streak = user.current_streak
+                user.longest_streak = user.current_streak  # Update best streak
         elif days_diff > 1:
-            # Streak broken
+            # Case 2: Gap in logins (streak broken)
+            # Reset streak to 1 (today counts as new streak start)
             user.current_streak = 1
+        # Case 3: days_diff == 0 (same day login)
+        # No action needed - streak unchanged
     else:
+        # First ever login - start streak at 1
         user.current_streak = 1
     
+    # Update last login timestamp for future streak calculations
     user.last_login = datetime.utcnow()
     db.session.commit()
     
-    # Generate access token
+    # Generate JWT access token (expires in 24 hours by default)
+    # Identity stored as string to match get_jwt_identity() return type
     access_token = create_access_token(identity=str(user.id))
     
     return jsonify({
