@@ -46,7 +46,7 @@ export default function TeacherMLReportsPage() {
     setTrainResult(null);
     try {
       const res = await api.post('/ml/model/train', { use_synthetic_data: false });
-      setTrainResult({ success: true, msg: `Model retrained! Data: ${res.data.data_source}. Accuracy: ${(res.data.data?.metrics?.[res.data.data?.best_algorithm]?.accuracy * 100 || 0).toFixed(1)}%` });
+      setTrainResult({ success: true, msg: `Model retrained! Data: ${res.data.data_source}. Accuracy: ${(res.data.data?.metrics?.[res.data.data?.metrics?.best_algorithm]?.accuracy * 100 || 0).toFixed(1)}%` });
       fetchReport();
     } catch (e) {
       setTrainResult({ success: false, msg: e.response?.data?.error || 'Training failed' });
