@@ -96,6 +96,13 @@ function MLInsightsPage() {
     );
   }
 
+  // Helper to safely resolve model metrics (may be nested under algorithm name or directly on metrics)
+  const getModelMetrics = () => {
+    if (!modelInfo?.metrics) return null;
+    // Try nested under algorithm key first, then fall back to metrics itself
+    return modelInfo.metrics[modelInfo.algorithm] || modelInfo.metrics;
+  };
+
   return (
     <div className="container">
       <div className="ml-insights-page">
@@ -112,35 +119,35 @@ function MLInsightsPage() {
               <div className="metric-card">
                 <div className="metric-icon">✓</div>
                 <div className="metric-value">
-                  {(modelInfo.metrics[modelInfo.algorithm]?.accuracy * 100).toFixed(1)}%
+                  {((getModelMetrics()?.accuracy ?? 0) * 100).toFixed(1)}%
                 </div>
                 <div className="metric-label">Accuracy</div>
               </div>
               <div className="metric-card">
                 <div className="metric-icon">🎯</div>
                 <div className="metric-value">
-                  {(modelInfo.metrics[modelInfo.algorithm]?.precision * 100).toFixed(1)}%
+                  {((getModelMetrics()?.precision ?? 0) * 100).toFixed(1)}%
                 </div>
                 <div className="metric-label">Precision</div>
               </div>
               <div className="metric-card">
                 <div className="metric-icon">📈</div>
                 <div className="metric-value">
-                  {(modelInfo.metrics[modelInfo.algorithm]?.recall * 100).toFixed(1)}%
+                  {((getModelMetrics()?.recall ?? 0) * 100).toFixed(1)}%
                 </div>
                 <div className="metric-label">Recall</div>
               </div>
               <div className="metric-card">
                 <div className="metric-icon">⚡</div>
                 <div className="metric-value">
-                  {(modelInfo.metrics[modelInfo.algorithm]?.f1_score * 100).toFixed(1)}%
+                  {((getModelMetrics()?.f1_score ?? 0) * 100).toFixed(1)}%
                 </div>
                 <div className="metric-label">F1 Score</div>
               </div>
             </div>
             <div className="model-details">
-              <p><strong>Algorithm:</strong> {modelInfo.algorithm.toUpperCase()}</p>
-              <p><strong>Features:</strong> {modelInfo.feature_names.join(', ')}</p>
+              <p><strong>Algorithm:</strong> {(modelInfo.algorithm || 'N/A').toUpperCase()}</p>
+              <p><strong>Features:</strong> {(modelInfo.feature_names || []).join(', ')}</p>
             </div>
           </div>
         )}
