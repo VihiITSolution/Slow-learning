@@ -40,13 +40,20 @@ function MLInsightsPage() {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
-      
+
+      // Only teachers and admins can see disengaged users; skip for students
+      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+      if (!storedUser || !['teacher', 'admin'].includes(storedUser.role)) return;
+
       const response = await axios.get('http://localhost:5000/api/ml/engagement/disengaged', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setDisengagedUsers(response.data.data.disengaged_users || []);
+      setDisengagedUsers(response.data.data?.disengaged_users || []);
     } catch (error) {
-      console.error('Failed to fetch disengaged users:', error);
+      // 403 = not a teacher/admin; silently ignore
+      if (error.response?.status !== 403 && error.response?.status !== 401) {
+        console.error('Failed to fetch disengaged users:', error);
+      }
     }
   };
 
@@ -88,6 +95,27 @@ function MLInsightsPage() {
     setPrediction(null);
   };
 
+  const getSelectedMetrics = () => {
+    if (!modelInfo?.metrics) return null;
+
+    const { metrics, algorithm } = modelInfo;
+
+    // Support both shapes:
+    // 1) Nested by algorithm: { logistic: { accuracy, ... }, best_algorithm: 'logistic' }
+    // 2) Flat single-model metrics: { accuracy, precision, recall, f1_score, algorithm: 'logistic' }
+    if (algorithm && metrics[algorithm] && typeof metrics[algorithm] === 'object') {
+      return metrics[algorithm];
+    }
+
+    return metrics;
+  };
+
+  const formatMetricPercent = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return '--';
+    return `${(numeric * 100).toFixed(1)}%`;
+  };
+
   if (loading) {
     return (
       <div className="container">
@@ -115,39 +143,45 @@ function MLInsightsPage() {
         {modelInfo && (
           <div className="metrics-section">
             <h2>📊 Model Performance</h2>
+            {(() => {
+              const selectedMetrics = getSelectedMetrics();
+
+              return (
             <div className="metrics-grid">
               <div className="metric-card">
                 <div className="metric-icon">✓</div>
                 <div className="metric-value">
-                  {((getModelMetrics()?.accuracy ?? 0) * 100).toFixed(1)}%
+                    {formatMetricPercent(selectedMetrics?.accuracy)}
                 </div>
                 <div className="metric-label">Accuracy</div>
               </div>
               <div className="metric-card">
                 <div className="metric-icon">🎯</div>
                 <div className="metric-value">
-                  {((getModelMetrics()?.precision ?? 0) * 100).toFixed(1)}%
+                    {formatMetricPercent(selectedMetrics?.precision)}
                 </div>
                 <div className="metric-label">Precision</div>
               </div>
               <div className="metric-card">
                 <div className="metric-icon">📈</div>
                 <div className="metric-value">
-                  {((getModelMetrics()?.recall ?? 0) * 100).toFixed(1)}%
+                    {formatMetricPercent(selectedMetrics?.recall)}
                 </div>
                 <div className="metric-label">Recall</div>
               </div>
               <div className="metric-card">
                 <div className="metric-icon">⚡</div>
                 <div className="metric-value">
-                  {((getModelMetrics()?.f1_score ?? 0) * 100).toFixed(1)}%
+                    {formatMetricPercent(selectedMetrics?.f1_score)}
                 </div>
                 <div className="metric-label">F1 Score</div>
               </div>
             </div>
+              );
+            })()}
             <div className="model-details">
               <p><strong>Algorithm:</strong> {(modelInfo.algorithm || 'N/A').toUpperCase()}</p>
-              <p><strong>Features:</strong> {(modelInfo.feature_names || []).join(', ')}</p>
+                <p><strong>Features:</strong> {(modelInfo.feature_names || []).join(', ') || 'N/A'}</p>
             </div>
           </div>
         )}
