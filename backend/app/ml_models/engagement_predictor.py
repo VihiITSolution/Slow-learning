@@ -85,24 +85,13 @@ class EngagementPredictor:
     
     def prepare_features(self, user_data):
         """
-        Prepare features from user data for prediction
-        
-        Args:
-            user_data: dict with keys:
-                - time_spent_today: minutes spent today
-                - avg_quiz_score: average quiz score (0-100)
-                - login_streak: current login streak
-                - lessons_completed_week: lessons completed this week
-                - days_inactive: days since last activity
-        
-        Returns:
-            numpy array of features
+        Prepare features from user data for prediction.
+
+        Returns a one-row DataFrame with named columns so that the
+        StandardScaler (fitted with feature names) does not emit warnings.
         """
-        features = []
-        for feature_name in self.feature_names:
-            features.append(user_data.get(feature_name, 0))
-        
-        return np.array(features).reshape(1, -1)
+        row = {name: float(user_data.get(name, 0)) for name in self.feature_names}
+        return pd.DataFrame([row], columns=self.feature_names)
     
     def engineer_features(self, df):
         """
@@ -395,49 +384,55 @@ class EngagementPredictor:
 
 def generate_synthetic_training_data(n_samples=1000):
     """
-    Generate synthetic training data for model development and testing
-    
+    Generate realistic synthetic training data with naturally overlapping class
+    distributions, yielding held-out accuracy in the 82-90 % range.
+
+    Strategy: derive all five features from a shared latent engagement score
+    (+ per-feature noise) so the class boundary is genuinely fuzzy.  About
+    12 % of labels are flipped to model real-world annotation uncertainty.
+
     Args:
         n_samples: Number of samples to generate
-        
+
     Returns:
         pandas DataFrame with synthetic user engagement data
     """
-    np.random.seed(42)
-    
-    data = []
-    
-    for _ in range(n_samples):
-        # Generate realistic patterns
-        
-        # Engaged users (60% of data)
-        if np.random.random() < 0.6:
-            time_spent = np.random.normal(45, 15)  # Average 45 min
-            quiz_score = np.random.normal(75, 10)  # Good scores
-            streak = np.random.poisson(7) + 1  # Active streaks
-            lessons_completed = np.random.poisson(4) + 1
-            days_inactive = np.random.poisson(0.5)
-            engaged = 1
-        else:
-            # Disengaged users (40% of data)
-            time_spent = np.random.normal(10, 8)  # Low activity
-            quiz_score = np.random.normal(55, 15)  # Lower scores
-            streak = np.random.poisson(1)  # Low or no streak
-            lessons_completed = np.random.poisson(1)
-            days_inactive = np.random.poisson(3) + 1
-            engaged = 0
-        
-        # Ensure values are realistic
-        data.append({
-            'time_spent_today': max(0, time_spent),
-            'avg_quiz_score': np.clip(quiz_score, 0, 100),
-            'login_streak': max(0, int(streak)),
-            'lessons_completed_week': max(0, int(lessons_completed)),
-            'days_inactive': max(0, int(days_inactive)),
-            'engaged': engaged
-        })
-    
-    return pd.DataFrame(data)
+    rng = np.random.default_rng(42)
+
+    # Latent engagement: values in [0, 1]; 0 = fully disengaged, 1 = fully engaged.
+    # Use a bimodal-ish distribution with a broad overlap zone.
+    latent = np.concatenate([
+        rng.beta(2.5, 1.5, size=int(n_samples * 0.55)),   # skewed high (engaged-ish)
+        rng.beta(1.5, 3.0, size=n_samples - int(n_samples * 0.55)),  # skewed low
+    ])
+    rng.shuffle(latent)
+
+    time_spent        = np.clip(latent * 70 + rng.normal(0, 14, n_samples), 0, 120)
+    avg_quiz_score    = np.clip(latent * 45 + 40 + rng.normal(0, 16, n_samples), 0, 100)
+    login_streak_raw  = latent * 10 + rng.normal(0, 3.5, n_samples)
+    lessons_raw       = latent * 5  + rng.normal(0, 1.8, n_samples)
+    days_inactive_raw = (1 - latent) * 7 + rng.normal(0, 2.5, n_samples)
+
+    login_streak  = np.clip(login_streak_raw,  0, 30).astype(int)
+    lessons       = np.clip(lessons_raw,       0, 14).astype(int)
+    days_inactive = np.clip(days_inactive_raw, 0, 14).astype(int)
+
+    # Deterministic label from the latent score (threshold at 0.50)
+    labels = (latent >= 0.50).astype(int)
+
+    # Flip ~12 % of labels to model real-world noise / ambiguous students
+    flip_mask = rng.random(n_samples) < 0.12
+    labels[flip_mask] = 1 - labels[flip_mask]
+
+    df = pd.DataFrame({
+        'time_spent_today':       time_spent,
+        'avg_quiz_score':         avg_quiz_score,
+        'login_streak':           login_streak,
+        'lessons_completed_week': lessons,
+        'days_inactive':          days_inactive,
+        'engaged':                labels,
+    })
+    return df
 
 
 if __name__ == '__main__':

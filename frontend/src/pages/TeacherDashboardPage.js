@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import api from '../services/api';
 import '../styles/TeacherDashboard.css';
 
 const TeacherDashboardPage = () => {
@@ -22,32 +23,31 @@ const TeacherDashboardPage = () => {
   const fetchTeacherData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch students who have completed assessments
-      const sessionsResponse = await fetch('http://localhost:5000/api/assessment/sessions/all');
-      const sessionsData = await sessionsResponse.json();
-      
-      if (sessionsData.sessions) {
-        // Get unique students
-        const uniqueStudents = [...new Set(sessionsData.sessions.map(s => s.student_name))];
-        setStudents(uniqueStudents);
-        
-        // Get completed assessments
-        const completed = sessionsData.sessions.filter(s => s.status === 'completed');
-        setAssessmentResults(completed);
-        
+
+      // Fetch all students (users with role='student') including their learning_style
+      const studentsResponse = await api.get('/auth/students');
+      const studentsData = studentsResponse.data;
+
+      if (studentsData.students) {
+        const allStudents = studentsData.students;
+        setStudents(allStudents);
+
+        // Assessed students are those with a learning_style saved
+        const assessed = allStudents.filter(s => s.learning_style);
+        setAssessmentResults(assessed);
+
         // Calculate stats
-        const totalStudents = uniqueStudents.length;
-        const completedAssessments = completed.length;
-        const averageScore = completed.length > 0 
-          ? completed.reduce((sum, s) => sum + (s.total_score || 0), 0) / completed.length 
+        const totalStudents = allStudents.length;
+        const completedAssessments = assessed.length;
+        const averageScore = assessed.length > 0
+          ? assessed.reduce((sum, s) => sum + (s.assessment_score || 0), 0) / assessed.length
           : 0;
-        
+
         setStats({
           totalStudents,
           completedAssessments,
           averageScore: Math.round(averageScore),
-          activeGames: sessionsData.sessions.filter(s => s.status === 'in_progress').length
+          activeGames: 0
         });
       }
     } catch (error) {
@@ -66,7 +66,8 @@ const TeacherDashboardPage = () => {
       'Talker': '💬',
       'Dreamer': '💭'
     };
-    return emojis[category] || '🎯';
+    const key = Object.keys(emojis).find(k => category && category.includes(k));
+    return key ? emojis[key] : '🎯';
   };
 
   if (loading) {
@@ -125,42 +126,37 @@ const TeacherDashboardPage = () => {
       <div className="section-card">
         <h2>📋 Student List</h2>
         {students.length === 0 ? (
-          <p className="no-data">No students have taken assessments yet.</p>
+          <p className="no-data">No students registered yet.</p>
         ) : (
           <div className="students-list">
-            {students.map((studentName, index) => {
-              const studentResults = assessmentResults.filter(r => r.student_name === studentName);
-              const latestResult = studentResults[studentResults.length - 1];
-              
-              return (
-                <div key={index} className="student-item">
-                  <div className="student-info">
-                    <div className="student-avatar">
-                      {studentName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="student-details">
-                      <h4>{studentName}</h4>
-                      <p>{studentResults.length} assessment{studentResults.length !== 1 ? 's' : ''}</p>
-                    </div>
+            {students.map((student, index) => (
+              <div key={student.id || index} className="student-item">
+                <div className="student-info">
+                  <div className="student-avatar">
+                    {student.username.charAt(0).toUpperCase()}
                   </div>
-                  <div className="student-category">
-                    {(latestResult?.primary_learning_style || latestResult?.learning_style) ? (
-                      <>
-                        <span className="category-emoji">
-                          {getCategoryEmoji(latestResult.primary_learning_style || latestResult.learning_style)}
-                        </span>
-                        <span className="category-name">{latestResult.primary_learning_style || latestResult.learning_style}</span>
-                      </>
-                    ) : (
-                      <span className="no-category">No category yet</span>
-                    )}
+                  <div className="student-details">
+                    <h4>{student.username}</h4>
+                    <p>{student.learning_style ? '1 assessment' : '0 assessments'}</p>
                   </div>
-                  <Link to={`/student-dashboard?name=${encodeURIComponent(studentName)}`} className="view-btn">
-                    View Details →
-                  </Link>
                 </div>
-              );
-            })}
+                <div className="student-category">
+                  {student.learning_style ? (
+                    <>
+                      <span className="category-emoji">
+                        {getCategoryEmoji(student.learning_style)}
+                      </span>
+                      <span className="category-name">{student.learning_style}</span>
+                    </>
+                  ) : (
+                    <span className="no-category">No category yet</span>
+                  )}
+                </div>
+                <Link to={`/student-dashboard?id=${student.id}&name=${encodeURIComponent(student.username)}`} className="view-btn">
+                  View Details →
+                </Link>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -177,25 +173,25 @@ const TeacherDashboardPage = () => {
                 <tr>
                   <th>Student</th>
                   <th>Learning Style</th>
-                  <th>Total Score</th>
-                  <th>Completed</th>
+                  <th>Score</th>
+                  <th>Assessed On</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {assessmentResults.slice(0, 10).map((result) => (
-                  <tr key={result.id}>
-                    <td>{result.student_name}</td>
+                {assessmentResults.slice(0, 10).map((student) => (
+                  <tr key={student.id}>
+                    <td>{student.username}</td>
                     <td>
                       <span className="category-badge">
-                        {getCategoryEmoji(result.primary_learning_style || result.learning_style)} {result.primary_learning_style || result.learning_style}
+                        {getCategoryEmoji(student.learning_style)} {student.learning_style}
                       </span>
                     </td>
-                    <td className="score">{result.total_score || 0}</td>
-                    <td>{new Date(result.completed_at).toLocaleDateString()}</td>
+                    <td className="score">{student.assessment_score || 0}</td>
+                    <td>{student.assessment_date ? new Date(student.assessment_date).toLocaleDateString() : '—'}</td>
                     <td>
-                      <Link 
-                        to={`/student-dashboard?name=${encodeURIComponent(result.student_name)}`}
+                      <Link
+                        to={`/student-dashboard?id=${student.id}&name=${encodeURIComponent(student.username)}`}
                         className="table-link"
                       >
                         View
