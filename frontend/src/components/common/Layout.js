@@ -46,6 +46,9 @@ const Layout = () => {
               <Link to="/teacher/dashboard" className="nav-link">
                 <FiHome /> Dashboard
               </Link>
+              <Link to="/teacher/ml-reports" className="nav-link">
+                <FaBrain /> ML Class Report
+              </Link>
               <Link to="/student-selection" className="nav-link">
                 <FaGraduationCap /> Start Assessment
               </Link>
@@ -79,6 +82,9 @@ const Layout = () => {
               </Link>
               <Link to="/app/leaderboard" className="nav-link">
                 <FiTrendingUp /> Leaderboard
+              </Link>
+              <Link to="/app/progress-summary" className="nav-link">
+                <FiTrendingUp /> My Progress
               </Link>
               <Link to="/app/ml-insights" className="nav-link">
                 <FaBrain /> ML Insights

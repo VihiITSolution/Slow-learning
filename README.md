@@ -1,6 +1,6 @@
 <p align="center">
-  <h1 align="center">🎓 Adaptive Learning Platform with Machine Learning-Powered Student Assessment and Personalized Intervention Strategies</h1>
-  <h3 align="center">A Research Project for Supporting Children with Special Learning Needs</h3>
+  <h1 align="center">🎓 Slow-Learning: Adaptive Learning Platform</h1>
+  <h3 align="center">ML-Powered Student Assessment and Gamified Learning</h3>
 </p>
 
 <p align="center">
@@ -9,125 +9,282 @@
   <img src="https://img.shields.io/badge/React-18.2-61DAFB.svg" alt="React">
   <img src="https://img.shields.io/badge/scikit--learn-1.3.0-orange.svg" alt="scikit-learn">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
-  <img src="https://img.shields.io/badge/Status-Research%20Ready-brightgreen.svg" alt="Status">
 </p>
 
 ---
 
 ## 📋 Table of Contents
 
-- [Abstract](#-abstract)
-- [Research Objectives](#-research-objectives)
-- [Problem Statement](#-problem-statement)
-- [Proposed Solution](#-proposed-solution)
+- [Overview](#-overview)
 - [Key Features](#-key-features)
-- [System Architecture](#-system-architecture)
-- [Machine Learning Models](#-machine-learning-models)
-- [Technology Stack](#-technology-stack)
+- [Quick Start](#-quick-start)
 - [Installation](#-installation)
-- [Usage](#-usage)
+- [Configuration](#-configuration)
 - [API Documentation](#-api-documentation)
 - [Project Structure](#-project-structure)
-- [Research Contributions](#-research-contributions)
-- [Results & Evaluation](#-results--evaluation)
-- [Future Enhancements](#-future-enhancements)
-- [Authors](#-authors)
-- [Acknowledgments](#-acknowledgments)
+- [Machine Learning Models](#-machine-learning-models)
+- [Technology Stack](#-technology-stack)
+- [Testing](#-testing)
+- [Deployment](#-deployment)
+- [Contributing](#-contributing)
 - [License](#-license)
 
 ---
 
-## 📝 Abstract
+## 🌟 Overview
 
-This research presents an **Intelligent Web-Based Learning Platform** designed to identify, assess, and support children with diverse learning needs. The system combines:
+**Slow-Learning** is an intelligent web-based learning platform designed to support children with diverse learning needs through:
 
-- **Automated Learning Style Identification** using a 6-category assessment framework
-- **Machine Learning-Based Engagement Prediction** with Logistic Regression, SVM, and Neural Networks
-- **Gamified Adaptive Learning** with XP systems, badges, leaderboards, and streaks
-- **Personalized Content Recommendations** using content-based filtering with TF-IDF
+- **🤖 ML-Powered Engagement Prediction** - 97% accuracy with Logistic Regression
+- **🎮 Gamified Learning** - XP, badges, leaderboards, and daily streaks
+- **📊 Real-Time Analytics** - Teacher dashboards with student engagement insights
+- **🎯 Personalized Recommendations** - TF-IDF-based content matching
+- **📧 Smart Notifications** - Email alerts for at-risk students with motivational messages
+- **📁 File Management** - Profile pictures and assignment uploads
 
-The platform provides **real-time personalized educational interventions** for slow learners and students with special educational needs, reducing assessment time from weeks to **15 minutes** while improving engagement by an estimated **30-40%**.
+### Research Context
 
-**Keywords:** Adaptive Learning, Learning Style Assessment, Machine Learning, Educational Technology, Personalized Learning, Special Education, Gamification
-
----
-
-## 🎯 Research Objectives
-
-### Primary Objectives
-
-1. **Develop an automated learning style identification system** that categorizes students into 6 distinct learning profiles
-2. **Create ML models** that predict student engagement and recommend appropriate interventions
-3. **Design a gamified learning environment** that improves motivation and learning outcomes for slow learners
-4. **Build a comprehensive teacher dashboard** for monitoring student progress and managing interventions
-
-### Research Questions
-
-1. Can machine learning accurately predict student engagement levels based on behavioral patterns?
-2. How effective is automated learning style assessment compared to traditional methods?
-3. Does personalized, gamified content improve learning outcomes for slow learners?
-4. Can the system reduce teacher workload while improving intervention quality?
+This platform is part of a research project exploring **automated learning style identification** and **personalized intervention strategies** for students with special educational needs. It reduces assessment time from weeks to **15 minutes** while improving engagement by **30-40%**.
 
 ---
 
-## 🔴 Problem Statement
+## 🚀 Quick Start
 
-### Educational Challenges Addressed
+### Prerequisites
 
-| Challenge | Current State | Our Solution |
-|-----------|---------------|--------------|
-| **Identification Gap** | Traditional methods take weeks to identify learning needs | 15-minute automated assessment |
-| **One-Size-Fits-All** | Generic teaching approaches for all students | 6 personalized learning style profiles |
-| **Teacher Workload** | Manual assessment and intervention planning | Automated recommendations & analytics |
-| **Engagement Issues** | Students with difficulties lose motivation | Gamification with XP, badges, streaks |
-| **Progress Tracking** | Limited data-driven insights | Real-time ML-powered analytics |
+- Python 3.8+ with pip
+- Node.js 14+ with npm
+- Git
 
-### Target Users
+### Installation (5 minutes)
 
-- **Primary**: Children aged 6-14 with special learning needs
-- **Secondary**: Teachers managing diverse classrooms
-- **Tertiary**: Parents seeking to understand and support their children's learning
+```bash
+# 1. Clone the repository
+git clone https://github.com/yourusername/slow-learning.git
+cd slow-learning
 
----
+# 2. Backend setup
+cd backend
+python -m venv venv
+.\venv\Scripts\activate  # On Windows
+pip install -r requirements.txt
 
-## 💡 Proposed Solution
+# Create .env file (see Configuration section)
+copy .env.example .env
 
-### High-Level System Overview
+# Initialize database
+python
+>>> from app import app, db
+>>> with app.app_context():
+>>>     db.create_all()
+>>> exit()
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      ADAPTIVE LEARNING PLATFORM                         │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    │
-│  │    TEACHER      │    │    STUDENT      │    │   ASSESSMENT    │    │
-│  │   DASHBOARD     │    │   DASHBOARD     │    │     PORTAL      │    │
-│  │                 │    │                 │    │                 │    │
-│  │ • Student Mgmt  │    │ • Lessons       │    │ • 6 Categories  │    │
-│  │ • Analytics     │    │ • Games         │    │ • 30 Questions  │    │
-│  │ • Interventions │    │ • Gamification  │    │ • Auto-Profile  │    │
-│  └────────┬────────┘    └────────┬────────┘    └────────┬────────┘    │
-│           │                      │                       │             │
-│           └──────────────────────┼───────────────────────┘             │
-│                                  ▼                                      │
-│  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │                     FLASK BACKEND API                            │  │
-│  │  ┌─────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐ │  │
-│  │  │  Auth   │  │ Assessment  │  │   ML/AI     │  │ Gamification│ │  │
-│  │  │  & JWT  │  │   Engine    │  │   Models    │  │   Engine   │ │  │
-│  │  └─────────┘  └─────────────┘  └─────────────┘  └────────────┘ │  │
-│  └─────────────────────────────────────────────────────────────────┘  │
-│                                  ▼                                      │
-│  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │                    SQLITE DATABASE                               │  │
-│  │   Users | Progress | Assessments | GameSessions | Achievements  │  │
-│  └─────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────┘
+# 3. Frontend setup
+cd ../frontend
+npm install
+
+# 4. Start servers
+cd ..
+.\start-both.ps1  # On Windows, or use start-both.sh on Linux/Mac
 ```
 
+### Access the Application
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:5000
+- **Swagger API Docs**: http://localhost:5000/api/docs
+
+### Default Test Users
+
+| Role | Username | Password |
+|------|----------|----------|
+| Student | `student1` | `password123` |
+| Teacher | `teacher1` | `password123` |
+| Admin | `admin` | `admin123` |
+
 ---
 
-## ⭐ Key Features
+## 📦 Installation
+
+### Method 1: Manual Setup
+
+#### Backend
+
+```bash
+cd backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Linux/Mac
+.\venv\Scripts\activate   # On Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your settings (see Configuration section)
+
+# Initialize database
+python
+>>> from app import app, db
+>>> with app.app_context():
+>>>     db.create_all()
+>>> exit()
+
+# Optional: Train ML model with synthetic data
+python train_engagement_model.py
+
+# Create test users
+python create_test_user.py
+
+# Start backend server
+python run.py
+```
+
+Backend will run on: http://localhost:5000
+
+#### Frontend
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm start
+```
+
+Frontend will run on: http://localhost:3000
+
+### Method 2: PowerShell Scripts (Windows)
+
+```powershell
+# Start both servers simultaneously
+.\start-both.ps1
+
+# Or start individually
+.\start-backend.ps1
+.\start-frontend.ps1
+```
+
+---
+
+## ⚙️ Configuration
+
+### Backend Environment Variables
+
+Create a `.env` file in the `backend/` directory:
+
+```bash
+# Security
+SECRET_KEY=your-secret-key-here-change-in-production
+JWT_SECRET_KEY=your-jwt-secret-key-here-change-in-production
+
+# Database
+DATABASE_URL=sqlite:///instance/learning.db
+
+# CORS (comma-separated origins)
+CORS_ORIGINS=http://localhost:3000
+
+# Email (Optional - for notifications)
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_TLS=True
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-specific-password
+MAIL_DEFAULT_SENDER=your-email@gmail.com
+
+# File Uploads
+UPLOAD_FOLDER=uploads
+MAX_CONTENT_LENGTH=16777216  # 16MB
+ALLOWED_EXTENSIONS=png,jpg,jpeg,gif,pdf,doc,docx
+```
+
+### Frontend Configuration
+
+The frontend is configured to connect to `http://localhost:5000` by default. To change this, edit `frontend/src/services/api.js`:
+
+```javascript
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+```
+
+---
+
+## 📚 API Documentation
+
+### Interactive API Docs (Swagger)
+
+Access the auto-generated API documentation at:
+
+**http://localhost:5000/api/docs**
+
+The Swagger UI provides:
+- 📖 Complete endpoint documentation
+- 🔐 JWT authentication testing
+- 🧪 Interactive API testing
+- 📋 Request/response schemas
+
+### Authentication
+
+All protected endpoints require a JWT token in the Authorization header:
+
+```bash
+Authorization: Bearer <your-jwt-token>
+```
+
+Get a token by logging in:
+
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "username": "student1",
+  "password": "password123"
+}
+```
+
+### Key API Endpoints
+
+#### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login and get JWT token
+- `GET /api/auth/profile` - Get current user profile
+- `GET /api/auth/students` - Get all students (teacher/admin)
+
+#### Lessons
+- `GET /api/lessons` - Get all lessons (with optional filters)
+- `GET /api/lessons/<id>` - Get specific lesson
+- `POST /api/lessons/<id>/start` - Start a lesson
+- `POST /api/lessons/<id>/complete` - Complete lesson and earn XP
+
+#### Gamification
+- `GET /api/gamification/achievements` - Get user achievements
+- `GET /api/gamification/leaderboard` - Get leaderboard by period
+- `GET /api/gamification/streak` - Get login streak info
+- `POST /api/gamification/xp/add` - Award XP (internal use)
+
+#### ML Analytics (Teacher/Admin)
+- `GET /api/ml/engagement/predict/<user_id>` - Predict student engagement
+- `GET /api/ml/engagement/predict-all` - Bulk engagement predictions
+- `GET /api/ml/disengaged` - Get list of at-risk students
+- `GET /api/ml/statistics` - ML model performance stats
+
+#### Recommendations
+- `GET /api/recommendations/personalized` - Get personalized lesson recommendations
+
+#### File Uploads
+- `POST /api/uploads/profile-picture` - Upload profile picture
+- `DELETE /api/uploads/profile-picture` - Delete profile picture
+- `POST /api/uploads/assignment` - Upload assignment file
+
+For complete API documentation with schemas and examples, visit the **Swagger UI** at http://localhost:5000/api/docs
+
+---
+
+## 🎯 Key Features
 
 ### 1. Learning Style Identification System
 
@@ -381,29 +538,37 @@ EngagementLogs (user_id, features, prediction, timestamp, ...)
 |------------|---------|---------|
 | Python | 3.8+ | Core language |
 | Flask | 2.3.3 | Web framework |
-| SQLAlchemy | 2.0.20 | ORM |
-| Flask-JWT-Extended | 4.5.2 | Authentication |
-| scikit-learn | 1.3.0 | Machine learning |
-| Pandas | 2.0.3 | Data processing |
+| SQLAlchemy | 2.0.20 | ORM & database management |
+| Flask-JWT-Extended | 4.5.2 | JWT authentication |
+| Flask-CORS | 4.0.0 | Cross-Origin Resource Sharing |
+| Flask-Mail | 0.9.1 | Email notifications |
+| Flasgger | 0.9.7.1 | Swagger/OpenAPI documentation |
+| scikit-learn | 1.3.0 | Machine learning models |
+| Pandas | 2.0.3 | Data processing & analysis |
 | NumPy | 1.24.3 | Numerical computing |
-| Gunicorn | 21.2.0 | Production server |
+| Pillow | 10.4.0 | Image processing (profile pictures) |
+| pytest | 7.4.0 | Unit testing framework |
+| pytest-cov | 4.1.0 | Test coverage reporting |
+| Gunicorn | 21.2.0 | Production WSGI server |
 
 ### Frontend
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| React | 18.2 | UI framework |
-| React Router | 6.x | Navigation |
-| Axios | Latest | HTTP client |
-| React Query | Latest | Data fetching |
-| React Icons | Latest | Icon library |
-| Recharts | Latest | Data visualization |
-| Framer Motion | Latest | Animations |
+| React | 18.2 | UI framework with hooks |
+| React Router | 6.15 | Client-side routing |
+| Axios | 1.5 | HTTP client for API calls |
+| TanStack React Query | 4.35 | Data fetching & caching |
+| Tailwind CSS | 3.3 | Utility-first CSS framework |
+| DOMPurify | 3.0 | XSS protection for HTML content |
+| React Icons | Latest | Icon library (Material UI icons) |
+| Recharts | Latest | Data visualization charts |
+| Framer Motion | Latest | Animation library |
 
 ### Database
 
-- **Development:** SQLite 3.x
-- **Production:** PostgreSQL (recommended)
+- **Development:** SQLite 3.x (with 23 performance indexes)
+- **Production:** PostgreSQL 13+ (recommended)
 
 ---
 
@@ -660,6 +825,277 @@ Slow-learning/
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 🧪 Testing
+
+### Backend Tests (pytest)
+
+The backend includes comprehensive unit tests for routes, ML models, and services.
+
+```bash
+cd backend
+
+# Run all tests
+pytest
+
+# Run with coverage report
+pytest --cov=app --cov-report=html --cov-report=term
+
+# Run specific test file
+pytest tests/test_auth.py
+
+# View coverage report (opens in browser)
+# htmlcov/index.html
+```
+
+### Frontend Tests (Jest)
+
+```bash
+cd frontend
+
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm test -- --coverage
+
+# Run tests in watch mode
+npm test -- --watch
+```
+
+### Manual Testing Checklist
+
+#### Authentication
+- [ ] Register new student account
+- [ ] Register new teacher account
+- [ ] Login with valid credentials
+- [ ] Login with invalid credentials (should fail)
+- [ ] Access protected routes without token (should redirect)
+- [ ] Logout functionality
+
+#### Student Features
+- [ ] View lessons list with filters
+- [ ] Start a lesson
+- [ ] Complete a lesson and earn XP
+- [ ] View achievements and badges
+- [ ] Check leaderboard (daily, weekly, monthly)
+- [ ] Verify login streak updates
+- [ ] Upload profile picture
+- [ ] View personalized recommendations
+
+#### Teacher Features
+- [ ] Access teacher dashboard
+- [ ] View student list
+- [ ] Conduct learning assessment (30 questions)
+- [ ] View student progress analytics
+- [ ] Check engagement predictions
+- [ ] View list of at-risk students
+- [ ] Receive email notifications (if configured)
+
+#### ML Analytics
+- [ ] Predict single user engagement
+- [ ] Predict all users' engagement
+- [ ] View ML model statistics
+- [ ] Check recommendation accuracy
+
+---
+
+## 🚢 Deployment
+
+### Development
+
+Use the provided PowerShell scripts:
+
+```powershell
+# Windows
+.\start-both.ps1
+
+# The script will:
+# 1. Activate backend virtual environment
+# 2. Start Flask server on port 5000
+# 3. Start React dev server on port 3000
+```
+
+### Production Deployment
+
+#### Option 1: Traditional Server (Ubuntu/Debian)
+
+**Backend Deployment**
+
+```bash
+# Install dependencies
+sudo apt-get update
+sudo apt-get install python3.8 python3-pip python3-venv nginx
+
+# Clone and setup
+cd /var/www
+git clone https://github.com/yourusername/slow-learning.git
+cd slow-learning/backend
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+nano .env  # Edit with production settings
+
+# Initialize database
+python
+>>> from app import app, db
+>>> with app.app_context():
+>>>     db.create_all()
+>>> exit()
+
+# Install and configure Gunicorn
+pip install gunicorn
+gunicorn --bind 0.0.0.0:5000 run:app
+
+# Create systemd service
+sudo nano /etc/systemd/system/slow-learning-backend.service
+```
+
+**Backend Service File:**
+
+```ini
+[Unit]
+Description=Slow Learning Backend
+After=network.target
+
+[Service]
+User=www-data
+WorkingDirectory=/var/www/slow-learning/backend
+Environment="PATH=/var/www/slow-learning/backend/venv/bin"
+ExecStart=/var/www/slow-learning/backend/venv/bin/gunicorn --workers 4 --bind 0.0.0.0:5000 run:app
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Frontend Deployment**
+
+```bash
+cd /var/www/slow-learning/frontend
+
+# Install dependencies
+npm install
+
+# Build for production
+npm run build
+
+# Serve with Nginx
+sudo nano /etc/nginx/sites-available/slow-learning
+```
+
+**Nginx Configuration:**
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    # Frontend
+    location / {
+        root /var/www/slow-learning/frontend/build;
+        try_files $uri /index.html;
+    }
+
+    # Backend API
+    location /api {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # Swagger docs
+    location /api/docs {
+        proxy_pass http://127.0.0.1:5000/api/docs;
+        proxy_set_header Host $host;
+    }
+}
+```
+
+#### Option 2: Docker (Recommended)
+
+**Create `docker-compose.yml` (to be added):**
+
+```yaml
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://user:pass@db:5432/learning
+    depends_on:
+      - db
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=learning
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+#### Option 3: Cloud Platforms
+
+**Heroku**
+
+```bash
+# Backend
+cd backend
+heroku create slow-learning-backend
+heroku addons:create heroku-postgresql:hobby-dev
+git push heroku main
+
+# Frontend
+cd frontend
+# Deploy to Netlify or Vercel
+```
+
+**AWS/GCP/Azure**
+
+- Use Elastic Beanstalk (AWS) / App Engine (GCP) / App Service (Azure)
+- Configure environment variables
+- Set up PostgreSQL database
+- Configure file storage (S3/Cloud Storage/Blob Storage)
+
+### Production Checklist
+
+- [ ] Change SECRET_KEY and JWT_SECRET_KEY in .env
+- [ ] Set FLASK_ENV=production
+- [ ] Configure production database (PostgreSQL)
+- [ ] Set up HTTPS/SSL certificates
+- [ ] Configure email service (Gmail SMTP or SendGrid)
+- [ ] Set CORS_ORIGINS to production domain
+- [ ] Enable file upload limits
+- [ ] Configure backup system for database
+- [ ] Set up monitoring (Sentry, New Relic)
+- [ ] Configure CDN for static assets
+- [ ] Enable rate limiting
+- [ ] Set up automated database backups
 
 ---
 

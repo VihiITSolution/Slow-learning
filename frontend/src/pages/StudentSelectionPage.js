@@ -18,7 +18,10 @@ const StudentSelectionPage = () => {
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/students');
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/auth/students', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const data = await response.json();
       if (data.students) {
         setStudents(data.students);

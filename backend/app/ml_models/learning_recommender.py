@@ -78,6 +78,7 @@ class LearningRecommender:
         
         # Calculate user preference vector (average of completed lessons)
         completed_features = self.lesson_features['tfidf_matrix'][completed_indices]
+        # Use np.asarray to avoid deprecated np.matrix (sparse .mean returns np.matrix in older scipy)
         user_profile = np.asarray(completed_features.mean(axis=0))
         
         # Calculate similarity with all lessons

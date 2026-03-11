@@ -31,6 +31,8 @@ import UserManagementPage from './pages/UserManagementPage';
 import CourseManagementPage from './pages/CourseManagementPage';
 import MaterialsLibraryPage from './pages/MaterialsLibraryPage';
 import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
+import TeacherMLReportsPage from './pages/TeacherMLReportsPage';
+import StudentProgressSummaryPage from './pages/StudentProgressSummaryPage';
 
 // Components
 import PrivateRoute from './components/common/PrivateRoute';
@@ -78,6 +80,7 @@ function App() {
             >
               <Route index element={<Navigate to="/teacher/dashboard" replace />} />
               <Route path="dashboard" element={<TeacherDashboardPage />} />
+              <Route path="ml-reports" element={<TeacherMLReportsPage />} />
             </Route>
 
             {/* Private Routes - Main App */}
@@ -100,6 +103,7 @@ function App() {
               <Route path="gamification" element={<GamificationPage />} />
               <Route path="ml-insights" element={<MLInsightsPage />} />
               <Route path="materials" element={<MaterialsLibraryPage />} />
+              <Route path="progress-summary" element={<StudentProgressSummaryPage />} />
             </Route>
 
             {/* Admin Routes */}

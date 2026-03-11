@@ -33,6 +33,7 @@ class Leaderboard(db.Model):
             'period': self.period,
             'rank': self.rank,
             'score': self.score,
+            'total_xp': self.score,  # alias for frontend compatibility
             'period_start': self.period_start.isoformat() if self.period_start else None,
             'period_end': self.period_end.isoformat() if self.period_end else None
         }
