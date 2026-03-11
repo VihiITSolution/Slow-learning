@@ -18,6 +18,7 @@ from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score
 import joblib
 import os
+import json
 from datetime import datetime
 
 
@@ -391,6 +392,77 @@ class EngagementPredictor:
             'feature_names': self.feature_names,
             'model_path': self.model_path
         }
+    
+    def save_prediction_to_json(self, user_data, prediction_result, output_path=None):
+        """
+        Save engagement prediction output to a JSON file
+        
+        Args:
+            user_data: dict with user activity metrics used for prediction
+            prediction_result: dict with prediction output from predict_engagement()
+            output_path: optional path to save JSON (default: saved_models/engagement_predictions.json)
+        
+        Returns:
+            str: path where JSON was saved
+        """
+        if output_path is None:
+            output_path = 'app/ml_models/saved_models/engagement_predictions.json'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # Create output data structure
+        output_data = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'model_info': {
+                'algorithm': self.algorithm,
+                'metrics': self.model_metrics
+            },
+            'input_features': user_data,
+            'prediction': prediction_result
+        }
+        
+        # Save to JSON file
+        with open(output_path, 'w') as f:
+            json.dump(output_data, f, indent=2)
+        
+        print(f"Engagement prediction saved to {output_path}")
+        return output_path
+    
+    def save_batch_predictions_to_json(self, predictions_list, output_path=None):
+        """
+        Save multiple engagement predictions to a JSON file
+        
+        Args:
+            predictions_list: list of dicts, each containing 'user_data' and 'prediction'
+            output_path: optional path to save JSON (default: saved_models/engagement_predictions_batch.json)
+        
+        Returns:
+            str: path where JSON was saved
+        """
+        if output_path is None:
+            output_path = 'app/ml_models/saved_models/engagement_predictions_batch.json'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # Create output data structure
+        output_data = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'model_info': {
+                'algorithm': self.algorithm,
+                'metrics': self.model_metrics
+            },
+            'predictions_count': len(predictions_list),
+            'predictions': predictions_list
+        }
+        
+        # Save to JSON file
+        with open(output_path, 'w') as f:
+            json.dump(output_data, f, indent=2)
+        
+        print(f"Batch engagement predictions ({len(predictions_list)} items) saved to {output_path}")
+        return output_path
 
 
 def generate_synthetic_training_data(n_samples=1000):

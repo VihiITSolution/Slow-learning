@@ -96,12 +96,12 @@ export const analyticsService = {
 
 export const recommendationService = {
   getRecommendations: async (limit = 5) => {
-    const response = await api.get(`/recommendations?limit=${limit}`);
+    const response = await api.get(`/recommendations/?limit=${limit}`);
     return response.data;
   },
 
   getNextLesson: async () => {
-    const response = await api.get('/recommendations/next-lesson');
+    const response = await api.get('/recommendations/next-lesson/');
     return response.data;
   },
 };

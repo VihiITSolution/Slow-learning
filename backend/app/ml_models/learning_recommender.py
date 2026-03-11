@@ -8,6 +8,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 import joblib
 import os
+import json
+from datetime import datetime
 
 
 class LearningRecommender:
@@ -76,7 +78,7 @@ class LearningRecommender:
         
         # Calculate user preference vector (average of completed lessons)
         completed_features = self.lesson_features['tfidf_matrix'][completed_indices]
-        user_profile = completed_features.mean(axis=0)
+        user_profile = np.asarray(completed_features.mean(axis=0))
         
         # Calculate similarity with all lessons
         similarities = cosine_similarity(user_profile, self.lesson_features['tfidf_matrix']).flatten()
@@ -180,3 +182,73 @@ class LearningRecommender:
             model_data = joblib.load(self.model_path)
             self.lesson_features = model_data['lesson_features']
             self.tfidf_vectorizer = model_data['tfidf_vectorizer']
+    
+    def save_recommendations_to_json(self, user_data, recommendations, output_path=None, recommendation_type='content_based'):
+        """
+        Save learning recommendations output to a JSON file
+        
+        Args:
+            user_data: dict with user information (completed_lessons, avg_quiz_score, etc.)
+            recommendations: list of recommendation dicts from get_content_based_recommendations() or get_adaptive_recommendations()
+            output_path: optional path to save JSON (default: saved_models/learning_recommendations.json)
+            recommendation_type: type of recommendation algorithm used ('content_based' or 'adaptive')
+        
+        Returns:
+            str: path where JSON was saved
+        """
+        if output_path is None:
+            output_path = 'app/ml_models/saved_models/learning_recommendations.json'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # Create output data structure
+        output_data = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'recommendation_type': recommendation_type,
+            'user_info': {
+                'completed_lessons_count': len(user_data.get('completed_lessons', [])),
+                'avg_quiz_score': user_data.get('avg_quiz_score'),
+                'difficulty_preference': user_data.get('difficulty_preference')
+            },
+            'recommendations': recommendations,
+            'recommendations_count': len(recommendations)
+        }
+        
+        # Save to JSON file
+        with open(output_path, 'w') as f:
+            json.dump(output_data, f, indent=2)
+        
+        print(f"Learning recommendations saved to {output_path}")
+        return output_path
+    
+    def save_batch_recommendations_to_json(self, recommendations_list, output_path=None):
+        """
+        Save multiple user recommendations to a JSON file
+        
+        Args:
+            recommendations_list: list of dicts, each containing 'user_id', 'user_data', and 'recommendations'
+            output_path: optional path to save JSON (default: saved_models/learning_recommendations_batch.json)
+        
+        Returns:
+            str: path where JSON was saved
+        """
+        if output_path is None:
+            output_path = 'app/ml_models/saved_models/learning_recommendations_batch.json'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # Create output data structure
+        output_data = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'total_users': len(recommendations_list),
+            'user_recommendations': recommendations_list
+        }
+        
+        # Save to JSON file
+        with open(output_path, 'w') as f:
+            json.dump(output_data, f, indent=2)
+        
+        print(f"Batch learning recommendations ({len(recommendations_list)} users) saved to {output_path}")
+        return output_path

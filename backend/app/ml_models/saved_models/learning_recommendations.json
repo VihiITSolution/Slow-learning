@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-03-11T11:28:57.399673",
+  "recommendation_type": "adaptive",
+  "user_info": {
+    "completed_lessons_count": 2,
+    "avg_quiz_score": 75,
+    "difficulty_preference": "medium"
+  },
+  "recommendations": [
+    {
+      "lesson_id": 4,
+      "score": 0.2950946617046264,
+      "reason": "Matched to your performance level (easy)"
+    },
+    {
+      "lesson_id": 5,
+      "score": 0.24561440103587878,
+      "reason": "Matched to your performance level (easy)"
+    },
+    {
+      "lesson_id": 2,
+      "score": 0.2122129810474701,
+      "reason": "Matched to your performance level (easy)"
+    }
+  ],
+  "recommendations_count": 3
+}

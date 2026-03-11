@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-03-11T11:28:57.411583",
+  "total_users": 3,
+  "user_recommendations": [
+    {
+      "user_id": "student_1",
+      "user_data": {
+        "user_id": "student_1",
+        "completed_lessons": [
+          1
+        ],
+        "avg_quiz_score": 85
+      },
+      "recommendations": [
+        {
+          "lesson_id": 4,
+          "score": 0.2724686986671635,
+          "reason": "Matched to your performance level (medium)"
+        },
+        {
+          "lesson_id": 5,
+          "score": 0.21702953426539928,
+          "reason": "Matched to your performance level (medium)"
+        },
+        {
+          "lesson_id": 2,
+          "score": 0.18751540727075128,
+          "reason": "Matched to your performance level (medium)"
+        }
+      ]
+    },
+    {
+      "user_id": "student_2",
+      "user_data": {
+        "user_id": "student_2",
+        "completed_lessons": [
+          1,
+          2,
+          3
+        ],
+        "avg_quiz_score": 70
+      },
+      "recommendations": [
+        {
+          "lesson_id": 4,
+          "score": 0.3638318319857521,
+          "reason": "Matched to your performance level (easy)"
+        },
+        {
+          "lesson_id": 5,
+          "score": 0.2642702606406673,
+          "reason": "Matched to your performance level (easy)"
+        }
+      ]
+    },
+    {
+      "user_id": "student_3",
+      "user_data": {
+        "user_id": "student_3",
+        "completed_lessons": [],
+        "avg_quiz_score": 60
+      },
+      "recommendations": [
+        {
+          "lesson_id": 1,
+          "score": 1.0,
+          "reason": "Matched to your performance level (easy)"
+        },
+        {
+          "lesson_id": 3,
+          "score": 1.0,
+          "reason": "Matched to your performance level (easy)"
+        }
+      ]
+    }
+  ]
+}

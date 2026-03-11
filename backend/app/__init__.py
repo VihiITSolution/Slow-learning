@@ -16,9 +16,12 @@ def create_app(config_name='development'):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
     
+    # Disable strict slashes to allow routes to work with or without trailing slash
+    app.url_map.strict_slashes = False
+    
     # Initialize extensions
     db.init_app(app)
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": "*", "allow_headers": ["Content-Type", "Authorization"]}})
     jwt.init_app(app)
     
     # Register blueprints

@@ -1,8 +1,49 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiBook, FiAward } from 'react-icons/fi';
+import { recommendationService } from '../services';
 
 const DashboardPage = () => {
+  const [recommendations, setRecommendations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, []);
+
+  const fetchRecommendations = async () => {
+    try {
+      setLoading(true);
+      const response = await recommendationService.getRecommendations(5);
+      setRecommendations(response.recommendations || []);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch recommendations:', err);
+      setError('Unable to load personalized recommendations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDifficultyIcon = (difficulty) => {
+    const icons = {
+      'easy': '🌱',
+      'medium': '🔥',
+      'hard': '💪',
+      'beginner': '🌟',
+      'intermediate': '⚡',
+      'advanced': '🚀'
+    };
+    return icons[difficulty?.toLowerCase()] || '📚';
+  };
+
+  const getConfidenceBadge = (score) => {
+    if (score >= 0.8) return { text: '🎯 HIGHLY RECOMMENDED', color: '#10b981' };
+    if (score >= 0.6) return { text: '✨ GOOD MATCH', color: '#8b5cf6' };
+    return { text: '💡 SUGGESTED', color: '#f59e0b' };
+  };
+
   return (
     <div className="dashboard-page">
       <div className="page-header">
@@ -52,32 +93,125 @@ const DashboardPage = () => {
               </div>
               
               <div className="dashboard-content">
-                  {/* Recommended Lessons */}
+                  {/* Recommended Lessons - ML Powered */}
                   <div style={{marginTop: '30px'}}>
-                    <h2 className="page-title" style={{fontSize: '32px', marginBottom: '20px'}}>📚 Recommended For You ✨</h2>
-                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px'}}>
-                      <div className="lesson-card">
-                        <div style={{fontSize: '60px', marginBottom: '15px'}}>📐</div>
-                        <h3 style={{fontSize: '24px', fontWeight: '900', color: '#1f2937', marginBottom: '10px'}}>
-                          Intro to Fractions
-                        </h3>
-                        <p style={{fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '15px'}}>
-                          ⏱️ 15 minutes
-                        </p>
-                        <button className="btn-primary">🚀 START LESSON</button>
+                    <h2 className="page-title" style={{fontSize: '32px', marginBottom: '20px'}}>
+                      🤖 AI Recommended For You ✨
+                    </h2>
+                    
+                    {loading ? (
+                      <div style={{textAlign: 'center', padding: '40px', fontSize: '18px', color: '#6b7280'}}>
+                        <div style={{fontSize: '48px', marginBottom: '15px'}}>🔮</div>
+                        Loading personalized recommendations...
                       </div>
+                    ) : error ? (
+                      <div style={{textAlign: 'center', padding: '40px'}}>
+                        <div style={{fontSize: '48px', marginBottom: '15px'}}>⚠️</div>
+                        <p style={{fontSize: '18px', color: '#ef4444', marginBottom: '15px'}}>{error}</p>
+                        <button className="btn-primary" onClick={fetchRecommendations}>
+                          🔄 Try Again
+                        </button>
+                      </div>
+                    ) : recommendations.length === 0 ? (
+                      <div style={{textAlign: 'center', padding: '40px'}}>
+                        <div style={{fontSize: '48px', marginBottom: '15px'}}>🎉</div>
+                        <p style={{fontSize: '18px', color: '#6b7280'}}>
+                          Great job! You've completed all available lessons.
+                        </p>
+                      </div>
+                    ) : (
+                      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px'}}>
+                        {recommendations.map((rec, index) => {
+                          const lesson = rec.lesson;
+                          const badge = getConfidenceBadge(rec.score);
+                          
+                          return (
+                            <div key={lesson.id} className="lesson-card" style={{
+                              border: index === 0 ? '5px solid #ec4899' : '3px solid #e5e7eb',
+                              background: index === 0 ? 'linear-gradient(135deg, #fef3c7, #ddd6fe)' : 'white',
+                              position: 'relative'
+                            }}>
+                              {/* ML Confidence Badge */}
+                              <div style={{
+                                position: 'absolute',
+                                top: '10px',
+                                right: '10px',
+                                fontSize: '11px',
+                                fontWeight: '900',
+                                color: 'white',
+                                background: badge.color,
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                border: `2px solid ${badge.color}`,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                              }}>
+                                {badge.text}
+                              </div>
 
-                      <div className="lesson-card">
-                        <div style={{fontSize: '60px', marginBottom: '15px'}}>📝</div>
-                        <h3 style={{fontSize: '24px', fontWeight: '900', color: '#1f2937', marginBottom: '10px'}}>
-                          Basic Spelling Rules
-                        </h3>
-                        <p style={{fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '15px'}}>
-                          ⏱️ 10 minutes
-                        </p>
-                        <button className="btn-primary">🚀 START LESSON</button>
+                              <div style={{fontSize: '60px', marginBottom: '15px'}}>
+                                {getDifficultyIcon(lesson.difficulty_level)}
+                              </div>
+                              
+                              <h3 style={{fontSize: '24px', fontWeight: '900', color: '#1f2937', marginBottom: '10px'}}>
+                                {lesson.title}
+                              </h3>
+                              
+                              {lesson.description && (
+                                <p style={{fontSize: '14px', fontWeight: '600', color: '#6b7280', marginBottom: '12px', height: '40px', overflow: 'hidden'}}>
+                                  {lesson.description.substring(0, 80)}...
+                                </p>
+                              )}
+                              
+                              {/* ML Reasoning */}
+                              <div style={{
+                                fontSize: '13px',
+                                fontWeight: '700',
+                                color: '#8b5cf6',
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                padding: '8px 12px',
+                                borderRadius: '10px',
+                                marginBottom: '12px',
+                                border: '2px solid rgba(139, 92, 246, 0.2)'
+                              }}>
+                                💡 {rec.reason}
+                              </div>
+
+                              {/* Lesson Meta Info */}
+                              <div style={{display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap'}}>
+                                <span style={{fontSize: '14px', fontWeight: '700', color: '#10b981', background: '#d1fae5', padding: '4px 10px', borderRadius: '8px'}}>
+                                  {lesson.difficulty_level || 'Easy'}
+                                </span>
+                                <span style={{fontSize: '14px', fontWeight: '700', color: '#f59e0b', background: '#fef3c7', padding: '4px 10px', borderRadius: '8px'}}>
+                                  {lesson.category || 'General'}
+                                </span>
+                              </div>
+
+                              <Link to={`/app/lessons/${lesson.id}`}>
+                                <button className="btn-primary" style={{width: '100%'}}>
+                                  🚀 START LESSON
+                                </button>
+                              </Link>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
+                    )}
+                    
+                    {/* Info about ML recommendations */}
+                    {!loading && !error && recommendations.length > 0 && (
+                      <div style={{
+                        marginTop: '20px',
+                        padding: '15px',
+                        background: 'linear-gradient(135deg, #ede9fe, #ddd6fe)',
+                        borderRadius: '15px',
+                        border: '3px solid #8b5cf6',
+                        textAlign: 'center'
+                      }}>
+                        <p style={{fontSize: '14px', fontWeight: '700', color: '#6b7280'}}>
+                          🤖 <strong style={{color: '#8b5cf6'}}>Powered by Machine Learning</strong> - These recommendations are personalized based on your learning history, quiz performance, and preferred difficulty level.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Mini Games */}
