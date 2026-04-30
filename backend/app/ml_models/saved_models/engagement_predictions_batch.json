@@ -1,21 +1,14 @@
 {
-  "timestamp": "2026-03-11T11:28:57.385522",
+  "timestamp": "2026-03-11T17:06:39.024423",
   "model_info": {
-    "algorithm": "logistic",
+    "algorithm": "neural",
     "metrics": {
-      "algorithm": "logistic",
-      "accuracy": 1.0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "classification_report": "              precision    recall  f1-score   support\n\n           0       1.00      1.00      1.00        41\n           1       1.00      1.00      1.00        59\n\n    accuracy                           1.00       100\n   macro avg       1.00      1.00      1.00       100\nweighted avg       1.00      1.00      1.00       100\n",
-      "feature_importance": {
-        "time_spent_today": 1.5657227225833075,
-        "avg_quiz_score": 0.8691951326859875,
-        "login_streak": 2.334111502354332,
-        "lessons_completed_week": 1.333665673512318,
-        "days_inactive": 1.6013209891745563
-      }
+      "algorithm": "neural",
+      "accuracy": 0.74,
+      "precision": 0.7630560271646858,
+      "recall": 0.74,
+      "f1_score": 0.7363232323232323,
+      "classification_report": "              precision    recall  f1-score   support\n\n           0       0.84      0.62      0.71        52\n           1       0.68      0.88      0.76        48\n\n    accuracy                           0.74       100\n   macro avg       0.76      0.75      0.74       100\nweighted avg       0.76      0.74      0.74       100\n"
     }
   },
   "predictions_count": 3,
@@ -31,15 +24,15 @@
       },
       "prediction": {
         "engaged": true,
-        "confidence": 0.999898427342135,
-        "engaged_probability": 0.999898427342135,
-        "disengaged_probability": 0.00010157265786503444,
+        "confidence": 0.7183028455037946,
+        "engaged_probability": 0.7183028455037946,
+        "disengaged_probability": 0.28169715449620536,
         "recommendation": [
           "Continue normal learning path",
           "Maintain current engagement strategies"
         ],
-        "risk_level": "low",
-        "algorithm_used": "logistic"
+        "risk_level": "moderate-low",
+        "algorithm_used": "neural"
       }
     },
     {
@@ -53,17 +46,15 @@
       },
       "prediction": {
         "engaged": false,
-        "confidence": 0.9867241517385369,
-        "engaged_probability": 0.01327584826146306,
-        "disengaged_probability": 0.9867241517385369,
+        "confidence": 0.5786754528483848,
+        "engaged_probability": 0.42132454715161516,
+        "disengaged_probability": 0.5786754528483848,
         "recommendation": [
-          "Send urgent motivational notification",
-          "Offer bonus XP (50 XP) for next lesson completion",
-          "Provide personalized encouragement message",
-          "Suggest easier lessons to rebuild confidence"
+          "Monitor activity closely",
+          "Send gentle reminder about learning goals"
         ],
-        "risk_level": "critical",
-        "algorithm_used": "logistic"
+        "risk_level": "moderate",
+        "algorithm_used": "neural"
       }
     },
     {
@@ -77,15 +68,15 @@
       },
       "prediction": {
         "engaged": true,
-        "confidence": 0.9903095641265709,
-        "engaged_probability": 0.9903095641265709,
-        "disengaged_probability": 0.009690435873429104,
+        "confidence": 0.6747670760851059,
+        "engaged_probability": 0.6747670760851059,
+        "disengaged_probability": 0.3252329239148941,
         "recommendation": [
           "Continue normal learning path",
           "Maintain current engagement strategies"
         ],
-        "risk_level": "low",
-        "algorithm_used": "logistic"
+        "risk_level": "moderate-low",
+        "algorithm_used": "neural"
       }
     }
   ]

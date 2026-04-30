@@ -6,16 +6,16 @@ Write-Host "  Gamified Learning Platform Startup  " -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Start Backend
+ # Start Backend
 Write-Host "🚀 Starting Backend Server..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'd:\vihin\Documents\Github\Slow-learning\backend'; & .\venv\Scripts\python.exe run.py"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'C:\Users\saduni\Documents\GitHub\Slow-learning\backend'; & 'C:\Users\saduni\Documents\GitHub\Slow-learning\.venv\Scripts\python.exe' run.py"
 
 # Wait a moment for backend to initialize
 Start-Sleep -Seconds 3
 
 # Start Frontend
 Write-Host "🚀 Starting Frontend Server..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'd:\vihin\Documents\Github\Slow-learning\frontend'; npm start"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'C:\Users\saduni\Documents\GitHub\Slow-learning\frontend'; npm start"
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
