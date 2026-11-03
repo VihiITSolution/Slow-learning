@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -20,7 +20,17 @@ const OUTCOMES = [
   ['needs_support', 'Needs more support'],
 ];
 
-const defaultReviewDate = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+// Local calendar dates (toISOString() is UTC, which is a day behind in
+// Sri Lanka between midnight and 05:30).
+const localISODate = (date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, '0'),
+  String(date.getDate()).padStart(2, '0'),
+].join('-');
+export const defaultReviewDate = (from = new Date()) => localISODate(
+  new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7)
+);
+const todayISODate = () => localISODate(new Date());
 const emptyForm = (studentId = '') => ({
   student_id: studentId,
   intervention_type: 'visual_support',
@@ -32,6 +42,7 @@ const emptyForm = (studentId = '') => ({
 
 const labelFor = (value, options) => options.find(([key]) => key === value)?.[1] || value;
 const signed = (value) => `${value > 0 ? '+' : ''}${value || 0}`;
+const engagementLabel = (engaged) => (engaged === true ? 'Engaged' : engaged === false ? 'At risk' : 'Unknown');
 
 function MetricComparison({ comparison }) {
   if (!comparison) return null;
@@ -58,7 +69,7 @@ function MetricComparison({ comparison }) {
         })}
       </div>
       <div className="comparison-statuses">
-        <span>Engagement: <strong>{comparison.engagement?.baseline ? 'Engaged' : 'At risk'} → {comparison.engagement?.review ? 'Engaged' : 'At risk'}</strong></span>
+        <span>Engagement: <strong>{engagementLabel(comparison.engagement?.baseline)} → {engagementLabel(comparison.engagement?.review)}</strong></span>
         <span>ML risk: <strong>{comparison.risk_level?.baseline || '—'} → {comparison.risk_level?.review || '—'}</strong></span>
       </div>
     </div>
@@ -79,6 +90,7 @@ export default function SupportPlansPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const reviewFormRef = useRef(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -103,6 +115,12 @@ export default function SupportPlansPage() {
       setShowForm(true);
     }
   }, [selectedStudentId]);
+
+  // The review form renders above the list, so bring it into view when a
+  // teacher clicks "Review outcome" further down the page.
+  useEffect(() => {
+    if (reviewingPlan) reviewFormRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [reviewingPlan]);
 
   const studentOptions = useMemo(() => students.map(student => ({ id: String(student.id), name: student.username })), [students]);
 
@@ -192,7 +210,7 @@ export default function SupportPlansPage() {
               <input value={form.custom_intervention} onChange={e => setForm({ ...form, custom_intervention: e.target.value })} required placeholder="Describe the strategy" />
             </label>}
             <label>Review date
-              <input type="date" value={form.review_date} min={new Date().toISOString().slice(0, 10)} onChange={e => setForm({ ...form, review_date: e.target.value })} required />
+              <input type="date" value={form.review_date} min={todayISODate()} onChange={e => setForm({ ...form, review_date: e.target.value })} required />
             </label>
           </div>
           <label>Learning goal
@@ -206,7 +224,7 @@ export default function SupportPlansPage() {
       )}
 
       {reviewingPlan && (
-        <form className="review-form" onSubmit={handleReview}>
+        <form className="review-form" onSubmit={handleReview} ref={reviewFormRef}>
           <div><h2>Review plan for {reviewingPlan.student_name}</h2><p>{reviewingPlan.goal}</p></div>
           <label>Outcome
             <select value={reviewForm.outcome} onChange={e => setReviewForm({ ...reviewForm, outcome: e.target.value })}>

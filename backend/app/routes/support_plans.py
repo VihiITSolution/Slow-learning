@@ -1,6 +1,7 @@
 """Authenticated staff APIs for teacher support plans and outcome tracking."""
 import csv
 import io
+import re
 from datetime import datetime
 
 from flask import Blueprint, Response, jsonify, request
@@ -51,8 +52,15 @@ def parse_review_date(value):
 
 
 def capture_snapshot(student):
-    prediction = engagement_service.predict_user_engagement(student.id)
-    return {
+    # A failing ML prediction must not stop a teacher from saving a plan:
+    # record the activity metrics and mark the engagement fields as unknown.
+    try:
+        prediction = engagement_service.predict_user_engagement(student.id) or {}
+        ml_error = None
+    except Exception as exc:
+        prediction = {}
+        ml_error = str(exc)[:200]
+    snapshot = {
         'total_xp': student.total_xp or 0,
         'lessons_completed': student.lessons_completed or 0,
         'quizzes_taken': student.quizzes_taken or 0,
@@ -64,19 +72,58 @@ def capture_snapshot(student):
         'engagement_features': prediction.get('features', {}),
         'captured_at': datetime.utcnow().isoformat(),
     }
+    if ml_error:
+        snapshot['ml_error'] = ml_error
+    return snapshot
+
+
+def safe_csv_cell(value):
+    """Stop spreadsheet apps from running teacher-entered text as a formula."""
+    if isinstance(value, str) and value[:1] in ('=', '+', '-', '@', '\t', '\r'):
+        return "'" + value
+    return value
+
+
+def redact_student(text, student):
+    """Replace the student's username/email in teacher-written text with [student]."""
+    if not text or not student:
+        return text
+    for identifier in (student.email, student.username):
+        if identifier:
+            text = re.sub(re.escape(identifier), '[student]', text, flags=re.IGNORECASE)
+    return text
 
 
 def get_student(student_id):
+    if isinstance(student_id, bool):
+        return None
+    try:
+        student_id = int(student_id)
+    except (TypeError, ValueError):
+        return None
     student = User.query.get(student_id)
     if not student or student.role != 'student':
         return None
     return student
 
 
+def text_field(data, key, max_length):
+    """Return the stripped text value of `key` (or '') and reject non-text input."""
+    value = data.get(key)
+    if value is None:
+        return ''
+    if not isinstance(value, str):
+        raise ValueError(f'{key} must be text')
+    value = value.strip()
+    if len(value) > max_length:
+        raise ValueError(f'{key} must be at most {max_length} characters')
+    return value
+
+
 def validate_plan_data(data, require_review_date=True):
-    intervention_type = (data.get('intervention_type') or '').strip()
-    goal = (data.get('goal') or '').strip()
-    custom_intervention = (data.get('custom_intervention') or '').strip() or None
+    intervention_type = text_field(data, 'intervention_type', 50)
+    goal = text_field(data, 'goal', 2000)
+    custom_intervention = text_field(data, 'custom_intervention', 255) or None
 
     if intervention_type not in INTERVENTION_TYPES:
         raise ValueError('Invalid intervention type')
@@ -89,7 +136,7 @@ def validate_plan_data(data, require_review_date=True):
         'intervention_type': intervention_type,
         'custom_intervention': custom_intervention,
         'goal': goal,
-        'notes': (data.get('notes') or '').strip() or None,
+        'notes': text_field(data, 'notes', 5000) or None,
     }
     if require_review_date:
         review_date = parse_review_date(data.get('review_date'))
@@ -106,7 +153,9 @@ def create_plan():
     if error:
         return error
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
+    if data.get('student_id') in (None, ''):
+        return jsonify({'success': False, 'error': 'student_id is required'}), 400
     student = get_student(data.get('student_id'))
     if not student:
         return jsonify({'success': False, 'error': 'Student not found'}), 404
@@ -167,15 +216,17 @@ def export_reviewed_plans():
     ])
     for plan in plans:
         baseline, review = plan.baseline_snapshot or {}, plan.review_snapshot or {}
-        writer.writerow([
-            plan.id, plan.student_id, plan.teacher_id, plan.intervention_type, plan.custom_intervention,
-            plan.goal, plan.review_date.isoformat(), plan.created_at.isoformat(),
-            plan.reviewed_at.isoformat() if plan.reviewed_at else '', plan.outcome, plan.outcome_notes,
+        writer.writerow([safe_csv_cell(value) for value in [
+            plan.id, plan.student_id, plan.teacher_id, plan.intervention_type,
+            redact_student(plan.custom_intervention, plan.student),
+            redact_student(plan.goal, plan.student), plan.review_date.isoformat(), plan.created_at.isoformat(),
+            plan.reviewed_at.isoformat() if plan.reviewed_at else '', plan.outcome,
+            redact_student(plan.outcome_notes, plan.student),
             baseline.get('total_xp'), review.get('total_xp'), baseline.get('lessons_completed'), review.get('lessons_completed'),
             baseline.get('quizzes_taken'), review.get('quizzes_taken'), baseline.get('total_time_spent'), review.get('total_time_spent'),
             baseline.get('current_streak'), review.get('current_streak'), baseline.get('engaged'), review.get('engaged'),
             baseline.get('risk_level'), review.get('risk_level'),
-        ])
+        ]])
     return Response(
         output.getvalue(),
         mimetype='text/csv',
@@ -208,8 +259,24 @@ def update_plan(plan_id):
         return jsonify({'success': False, 'error': 'Reviewed support plans cannot be changed'}), 409
     if staff.role != 'admin' and plan.teacher_id != staff.id:
         return jsonify({'success': False, 'error': 'Only the plan author or an admin can update this plan'}), 403
+    data = request.get_json(silent=True) or {}
+    # Partial updates: fields that are not sent keep their current values.
+    current = {
+        'intervention_type': plan.intervention_type,
+        'custom_intervention': plan.custom_intervention,
+        'goal': plan.goal,
+        'notes': plan.notes,
+    }
+    merged = {**current, **{k: v for k, v in data.items() if k in current}}
+    current_date = plan.review_date.date().isoformat() if plan.review_date else None
+    new_date = data.get('review_date')
+    # Only validate the review date when it actually changes, so an overdue
+    # plan can still have its notes or goal edited.
+    date_changed = new_date not in (None, '') and str(new_date)[:10] != current_date
+    if date_changed:
+        merged['review_date'] = new_date
     try:
-        values = validate_plan_data(request.get_json() or {})
+        values = validate_plan_data(merged, require_review_date=date_changed)
     except ValueError as exc:
         return jsonify({'success': False, 'error': str(exc)}), 400
     for key, value in values.items():
@@ -232,12 +299,16 @@ def review_plan(plan_id):
     if staff.role != 'admin' and plan.teacher_id != staff.id:
         return jsonify({'success': False, 'error': 'Only the plan author or an admin can review this plan'}), 403
 
-    data = request.get_json() or {}
-    outcome = (data.get('outcome') or '').strip()
+    data = request.get_json(silent=True) or {}
+    try:
+        outcome = text_field(data, 'outcome', 30)
+        outcome_notes = text_field(data, 'outcome_notes', 5000) or None
+    except ValueError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
     if outcome not in OUTCOMES:
         return jsonify({'success': False, 'error': 'Outcome must be improved, unchanged, or needs_support'}), 400
     plan.outcome = outcome
-    plan.outcome_notes = (data.get('outcome_notes') or '').strip() or None
+    plan.outcome_notes = outcome_notes
     plan.review_snapshot = capture_snapshot(plan.student)
     plan.status = 'reviewed'
     plan.reviewed_at = datetime.utcnow()

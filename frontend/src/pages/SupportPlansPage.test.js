@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
-import SupportPlansPage from './SupportPlansPage';
+import SupportPlansPage, { defaultReviewDate } from './SupportPlansPage';
 import api from '../services/api';
 
 jest.mock('../services/api');
@@ -67,5 +67,37 @@ describe('SupportPlansPage', () => {
     api.get.mockRejectedValue({ response: { data: { error: 'Access denied' } } });
     renderPage();
     await waitFor(() => expect(screen.getByText('Access denied')).toBeInTheDocument());
+  });
+
+  test('default review date is seven days ahead in local time', () => {
+    expect(defaultReviewDate(new Date(2026, 10, 28, 1, 30))).toBe('2026-12-05');
+    expect(defaultReviewDate(new Date(2026, 11, 30))).toBe('2027-01-06');
+  });
+
+  test('records a review outcome and refreshes the list', async () => {
+    const activePlan = { ...reviewedPlan, id: 3, status: 'active', outcome: null, metric_comparison: null };
+    mockPageData([activePlan]);
+    api.post.mockResolvedValue({ data: { success: true } });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /review outcome/i }));
+    fireEvent.change(screen.getByLabelText('Outcome'), { target: { value: 'needs_support' } });
+    fireEvent.change(screen.getByLabelText('Outcome notes'), { target: { value: 'Still guessing words' } });
+    fireEvent.click(screen.getByRole('button', { name: /record outcome/i }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/support-plans/3/review', {
+      outcome: 'needs_support', outcome_notes: 'Still guessing words',
+    }));
+    expect(await screen.findByText(/outcome recorded/i)).toBeInTheDocument();
+  });
+
+  test('shows Unknown when the ML engagement state was not available', async () => {
+    const unknownPlan = {
+      ...reviewedPlan,
+      metric_comparison: { ...reviewedPlan.metric_comparison, engagement: { baseline: null, review: true } },
+    };
+    mockPageData([unknownPlan]);
+    renderPage();
+    expect(await screen.findByText(/Unknown → Engaged/i)).toBeInTheDocument();
   });
 });
