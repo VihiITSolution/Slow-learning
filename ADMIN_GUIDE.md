@@ -565,7 +565,7 @@ python train_engagement_model.py
 2. Extracts features (streak, lessons, time, etc.)
 3. Trains Logistic Regression model
 4. Evaluates on test set
-5. Saves model if accuracy > 90%
+5. Saves the model and its held-out metrics (accuracy, F1, ROC-AUC)
 
 ### Model Features
 

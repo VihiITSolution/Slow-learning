@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
-const RISK_LABEL = { critical: 'Needs urgent help', high: 'Needs attention', moderate: 'Doing okay', 'moderate-low': 'Doing well', low: 'Excellent!' };
-const RISK_COLOR = { critical: '#dc2626', high: '#ea580c', moderate: '#d97706', 'moderate-low': '#65a30d', low: '#16a34a' };
-const RISK_BG   = { critical: '#fef2f2', high: '#fff7ed', moderate: '#fffbeb', 'moderate-low': '#f7fee7', low: '#f0fdf4' };
+const RISK_LABEL = { critical: 'Needs urgent help', high: 'Needs attention', moderate: 'Doing okay', 'moderate-low': 'Doing well', low: 'Excellent!', new: 'Welcome aboard' };
+const RISK_COLOR = { critical: '#dc2626', high: '#ea580c', moderate: '#d97706', 'moderate-low': '#65a30d', low: '#16a34a', new: '#2563eb' };
+const RISK_BG   = { critical: '#fef2f2', high: '#fff7ed', moderate: '#fffbeb', 'moderate-low': '#f7fee7', low: '#f0fdf4', new: '#eff6ff' };
 
 function ProgressBar({ value, max = 100, color = '#6366f1' }) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100));
@@ -59,12 +59,15 @@ export default function StudentProgressSummaryPage() {
   const info = report?.user_info || {};
   const recs = report?.recommendations || [];
   const engaged = report?.engaged;
+  const isNew = Boolean(report?.insufficient_data);
   const riskLevel = report?.risk_level || 'low';
   const confidence = report?.confidence || 0;
   const actionItems = report?.recommendation || [];
 
   // Friendly headline based on engagement status
-  const headline = engaged
+  const headline = isNew
+    ? 'Welcome! Let\'s start your first lesson 🌱'
+    : engaged
     ? ['You\'re crushing it! 🚀', 'Amazing work, keep it up! 🌟', 'Super star learner! ⭐'][Math.floor(Math.random() * 3)]
     : ['Let\'s get back on track! 💪', 'Every expert was once a beginner 📚', 'Your next lesson is waiting! 🎯'][Math.floor(Math.random() * 3)];
 
@@ -72,8 +75,8 @@ export default function StudentProgressSummaryPage() {
     <div style={{ padding: '24px 32px', maxWidth: 900, margin: '0 auto' }}>
 
       {/* Header banner */}
-      <div style={{ background: engaged ? 'linear-gradient(135deg,#4ade80,#22c55e)' : 'linear-gradient(135deg,#fbbf24,#f59e0b)', borderRadius: 16, padding: '28px 32px', marginBottom: 28, color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,.12)' }}>
-        <div style={{ fontSize: 48, marginBottom: 8 }}>{engaged ? '🎉' : '📖'}</div>
+      <div style={{ background: isNew ? 'linear-gradient(135deg,#60a5fa,#3b82f6)' : engaged ? 'linear-gradient(135deg,#4ade80,#22c55e)' : 'linear-gradient(135deg,#fbbf24,#f59e0b)', borderRadius: 16, padding: '28px 32px', marginBottom: 28, color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,.12)' }}>
+        <div style={{ fontSize: 48, marginBottom: 8 }}>{isNew ? '🌱' : engaged ? '🎉' : '📖'}</div>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800 }}>{headline}</h1>
         <p style={{ margin: '6px 0 0', fontSize: 16, opacity: .9 }}>
           Hi <strong>{user?.username}</strong>! Here's your personal learning summary.
@@ -89,9 +92,9 @@ export default function StudentProgressSummaryPage() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <span style={{ padding: '6px 18px', borderRadius: 20, background: RISK_BG[riskLevel], color: RISK_COLOR[riskLevel], fontWeight: 800, fontSize: 15, border: `2px solid ${RISK_COLOR[riskLevel]}` }}>
-              {engaged ? '✅ Engaged Learner' : '⚠️ Needs Attention'}
+              {isNew ? '🌱 Just getting started' : engaged ? '✅ Engaged Learner' : '⚠️ Needs Attention'}
             </span>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{RISK_LABEL[riskLevel]} · {(confidence * 100).toFixed(0)}% confidence</div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{isNew ? 'Complete a lesson so we can track your progress' : `${RISK_LABEL[riskLevel]} · ${(confidence * 100).toFixed(0)}% confidence`}</div>
           </div>
         </div>
       </div>
@@ -100,7 +103,7 @@ export default function StudentProgressSummaryPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 16, marginBottom: 24 }}>
         {[
           { icon: '⏱', label: 'Time Today', value: `${(features.time_spent_today || 0).toFixed(0)} min`, color: '#6366f1', max: 60, raw: features.time_spent_today || 0 },
-          { icon: '🎯', label: 'Avg Quiz Score', value: `${(features.avg_quiz_score || 0).toFixed(0)}%`, color: '#0284c7', max: 100, raw: features.avg_quiz_score || 0 },
+          { icon: '🎯', label: 'Avg Quiz Score', value: typeof features.avg_quiz_score === 'number' ? `${features.avg_quiz_score.toFixed(0)}%` : 'No quiz yet', color: '#0284c7', max: 100, raw: features.avg_quiz_score || 0 },
           { icon: '🔥', label: 'Login Streak', value: `${features.login_streak || 0} days`, color: '#f59e0b', max: 30, raw: features.login_streak || 0 },
           { icon: '📚', label: 'Lessons This Week', value: features.lessons_completed_week || 0, color: '#16a34a', max: 7, raw: features.lessons_completed_week || 0 },
           { icon: '😴', label: 'Days Inactive', value: `${features.days_inactive || 0} days`, color: features.days_inactive > 3 ? '#dc2626' : '#16a34a', max: 7, raw: Math.min(features.days_inactive || 0, 7), invert: true },

@@ -43,8 +43,9 @@ def app():
         'SECRET_KEY': 'test-secret-key'
     })
     
-    # Create database tables
+    # Start every test from an empty database (create_app seeds demo lessons)
     with app.app_context():
+        db.drop_all()
         db.create_all()
         yield app
         db.session.remove()

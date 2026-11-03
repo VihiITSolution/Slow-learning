@@ -304,8 +304,8 @@ Navigate to `/teacher/dashboard` or `/analytics`:
 ### Understanding the ML Model
 
 Our engagement prediction model:
-- **Type:** Logistic Regression (97% accuracy)
-- **Training Data:** Historical student behavior
+- **Type:** Logistic Regression (78% accuracy on held-out synthetic data)
+- **Training Data:** Synthetic students (not yet validated on real students)
 - **Update Frequency:** Real-time predictions
 - **Features Used:**
   - Current streak
@@ -668,7 +668,7 @@ You're setting a great example for other students. Keep it up!
 ### Engagement Prediction Model
 
 **Model Type:** Logistic Regression  
-**Accuracy:** 97% on test data  
+**Accuracy:** 78% on held-out synthetic test data (not real students)  
 **Features Used:**
 1. current_streak (days)
 2. lessons_completed (count)

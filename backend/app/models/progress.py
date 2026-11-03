@@ -90,6 +90,7 @@ class Progress(db.Model):
             'status': self.status,
             'completion_percentage': self.completion_percentage,
             'time_spent': self.time_spent,
+            'attempts': self.attempts,
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'last_accessed': self.last_accessed.isoformat() if self.last_accessed else None,

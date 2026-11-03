@@ -14,12 +14,64 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import cross_val_score, train_test_split
-from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import (classification_report, accuracy_score, precision_score, recall_score,
+                             f1_score, roc_auc_score, confusion_matrix)
+import sklearn
 import joblib
 import os
 import json
 from datetime import datetime
+
+
+FEATURE_NAMES = [
+    'time_spent_today',
+    'avg_quiz_score',
+    'login_streak',
+    'lessons_completed_week',
+    'days_inactive',
+]
+
+# Valid range for each feature. Values outside are clipped so that unusual
+# inputs (e.g. a student inactive for years) cannot produce extreme scores.
+FEATURE_BOUNDS = {
+    'time_spent_today': (0, 180),
+    'avg_quiz_score': (0, 100),
+    'login_streak': (0, 365),
+    'lessons_completed_week': (0, 20),
+    'days_inactive': (0, 60),
+}
+
+# Used only when no trained scaler is available to impute missing values.
+FEATURE_DEFAULTS = {
+    'time_spent_today': 0.0,
+    'avg_quiz_score': 60.0,
+    'login_streak': 0.0,
+    'lessons_completed_week': 0.0,
+    'days_inactive': 0.0,
+}
+
+
+def rule_based_engagement_label(features):
+    """
+    The single rule used to label real (database) students for training.
+
+    A student counts as engaged (1) when they meet at least 3 of these 5
+    criteria; a missing quiz score counts as "not met". This is a heuristic,
+    not a teacher judgement, so a model trained on these labels learns to
+    reproduce the rule - its accuracy must not be reported as real-world
+    accuracy.
+    """
+    quiz = features.get('avg_quiz_score')
+    criteria = [
+        (features.get('time_spent_today') or 0) >= 15,
+        quiz is not None and quiz >= 60,
+        (features.get('login_streak') or 0) >= 2,
+        (features.get('lessons_completed_week') or 0) >= 1,
+        (features.get('days_inactive') if features.get('days_inactive') is not None else 999) <= 3,
+    ]
+    return 1 if sum(criteria) >= 3 else 0
 
 
 class EngagementPredictor:
@@ -35,15 +87,14 @@ class EngagementPredictor:
         self.model = None
         self.scaler = StandardScaler()
         self.model_path = model_path
+        # The algorithm the caller asked for. Loading a saved model below
+        # overwrites self.algorithm with the saved one, so training must use
+        # this value - otherwise the requested algorithm is silently ignored.
+        self.requested_algorithm = algorithm
         self.algorithm = algorithm
-        self.feature_names = [
-            'time_spent_today',
-            'avg_quiz_score', 
-            'login_streak',
-            'lessons_completed_week',
-            'days_inactive'
-        ]
+        self.feature_names = list(FEATURE_NAMES)
         self.model_metrics = {}
+        self._loaded_mtime = None
         
         # Load model if it exists
         if os.path.exists(model_path):
@@ -84,42 +135,46 @@ class EngagementPredictor:
         else:
             raise ValueError(f"Unknown algorithm: {algorithm}")
     
+    def _impute_value(self, index, name):
+        """Value used for a missing feature: the training mean when known."""
+        mean = getattr(self.scaler, 'mean_', None)
+        if mean is not None and index < len(mean):
+            return float(mean[index])
+        return FEATURE_DEFAULTS.get(name, 0.0)
+
     def prepare_features(self, user_data):
         """
         Prepare features from user data for prediction.
 
+        Missing values (e.g. no quiz taken yet -> avg_quiz_score None) are
+        replaced by the training mean, so after scaling they are neutral
+        instead of looking like a 0% score. Values are clipped to
+        FEATURE_BOUNDS.
+
         Returns a one-row DataFrame with named columns so that the
         StandardScaler (fitted with feature names) does not emit warnings.
         """
-        row = {name: float(user_data.get(name, 0)) for name in self.feature_names}
+        row = {}
+        for index, name in enumerate(self.feature_names):
+            value = user_data.get(name)
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                value = None
+            if value is None or np.isnan(value):
+                value = self._impute_value(index, name)
+            low, high = FEATURE_BOUNDS.get(name, (-np.inf, np.inf))
+            row[name] = float(np.clip(value, low, high))
         return pd.DataFrame([row], columns=self.feature_names)
-    
-    def engineer_features(self, df):
-        """
-        Add engineered features to improve model performance
-        
-        Args:
-            df: DataFrame with base features
-            
-        Returns:
-            DataFrame with additional engineered features
-        """
-        # Interaction features
-        df['engagement_score'] = (
-            df['time_spent_today'] * 0.3 + 
-            df['avg_quiz_score'] * 0.3 + 
-            df['login_streak'] * 10 +
-            df['lessons_completed_week'] * 20 - 
-            df['days_inactive'] * 15
-        )
-        
-        # Activity consistency
-        df['activity_ratio'] = df['lessons_completed_week'] / (df['days_inactive'] + 1)
-        
-        # Performance indicator
-        df['performance_indicator'] = (df['avg_quiz_score'] / 100) * df['login_streak']
-        
-        return df
+
+    def _refresh_if_updated(self):
+        """Reload the saved model when the file on disk has changed (e.g. after a retrain)."""
+        try:
+            mtime = os.path.getmtime(self.model_path)
+        except OSError:
+            return
+        if mtime != self._loaded_mtime:
+            self.load_model()
     
     def predict_engagement(self, user_data):
         """
@@ -131,6 +186,7 @@ class EngagementPredictor:
         Returns:
             dict with prediction result, confidence score, and recommendation
         """
+        self._refresh_if_updated()
         if self.model is None:
             # Return default prediction if model not trained yet
             return {
@@ -226,64 +282,97 @@ class EngagementPredictor:
                 'Maintain current engagement strategies'
             ]
     
-    def train_model(self, training_data, test_size=0.2):
+    def train_model(self, training_data, test_size=0.2, cv_folds=5, data_source=None):
         """
-        Train the engagement prediction model with algorithm comparison
-        
+        Train the engagement prediction model.
+
+        - The algorithm requested in the constructor is used ('auto' compares
+          logistic regression, SVM and a neural network).
+        - With 'auto', the algorithm is chosen by stratified k-fold
+          cross-validation on the training split only.
+        - The reported metrics come from a held-out test split that was not
+          used for training or for choosing the algorithm.
+
         Args:
-            training_data: pandas DataFrame with features and labels
-            test_size: Proportion of data to use for testing
-        
+            training_data: pandas DataFrame with FEATURE_NAMES columns and an 'engaged' label
+            test_size: proportion of rows kept aside for the final evaluation
+            cv_folds: folds used to choose the algorithm when 'auto'
+            data_source: optional description of where the data came from
+
         Returns:
             dict with training results and metrics
         """
-        # Prepare data
-        X = training_data[self.feature_names]
-        y = training_data['engaged']
-        
-        # Split data
+        algorithm = self.requested_algorithm or 'auto'
+        if algorithm not in ('auto', 'logistic', 'svm', 'neural'):
+            raise ValueError(f"Unknown algorithm: {algorithm}")
+
+        X = training_data[self.feature_names].astype(float)
+        # Real students without a quiz have no score; fill with the column mean
+        X = X.fillna(X.mean()).fillna(0.0)
+        for name, (low, high) in FEATURE_BOUNDS.items():
+            if name in X:
+                X[name] = X[name].clip(low, high)
+        y = training_data['engaged'].astype(int)
+
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=42, stratify=y
         )
-        
-        # Scale features
+
+        selection = {}
+        if algorithm == 'auto':
+            folds = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
+            best_mean = -1.0
+            chosen = None
+            for algo in ('logistic', 'svm', 'neural'):  # simplest first: wins ties
+                pipeline = make_pipeline(StandardScaler(), self._create_model(algo))
+                scores = cross_val_score(pipeline, X_train, y_train, cv=folds, scoring='accuracy')
+                selection[algo] = {
+                    'cv_accuracy_mean': float(scores.mean()),
+                    'cv_accuracy_std': float(scores.std()),
+                }
+                if scores.mean() > best_mean + 1e-9:
+                    best_mean, chosen = scores.mean(), algo
+            algorithm = chosen
+
+        self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
-        
-        # Train and compare models if 'auto' is selected
-        if self.algorithm == 'auto':
-            best_model, best_score, all_results = self._compare_models(
-                X_train_scaled, y_train, X_test_scaled, y_test
-            )
-            self.model = best_model
-            self.model_metrics = all_results
-        else:
-            # Train single specified model
-            self.model = self._create_model(self.algorithm)
-            self.model.fit(X_train_scaled, y_train)
-            
-            # Evaluate
-            y_pred = self.model.predict(X_test_scaled)
-            self.model_metrics = {
-                'algorithm': self.algorithm,
-                'accuracy': accuracy_score(y_test, y_pred),
-                'precision': precision_score(y_test, y_pred, average='weighted'),
-                'recall': recall_score(y_test, y_pred, average='weighted'),
-                'f1_score': f1_score(y_test, y_pred, average='weighted'),
-                'classification_report': classification_report(y_test, y_pred)
-            }
-        
-        # Feature importance (for logistic regression)
+        self.model = self._create_model(algorithm)
+        self.model.fit(X_train_scaled, y_train)
+        self.algorithm = algorithm
+
+        y_pred = self.model.predict(X_test_scaled)
+        y_prob = self.model.predict_proba(X_test_scaled)[:, 1]
+        try:
+            roc_auc = float(roc_auc_score(y_test, y_prob))
+        except ValueError:  # only one class in the test split
+            roc_auc = None
+
+        self.model_metrics = {
+            'algorithm': algorithm,
+            'best_algorithm': algorithm,
+            'accuracy': float(accuracy_score(y_test, y_pred)),
+            'precision': float(precision_score(y_test, y_pred, average='weighted', zero_division=0)),
+            'recall': float(recall_score(y_test, y_pred, average='weighted', zero_division=0)),
+            'f1_score': float(f1_score(y_test, y_pred, average='weighted', zero_division=0)),
+            'roc_auc': roc_auc,
+            'confusion_matrix': confusion_matrix(y_test, y_pred, labels=[0, 1]).tolist(),
+            'classification_report': classification_report(y_test, y_pred, zero_division=0),
+            'evaluation': 'held-out test split, not used for training or model selection',
+            'training_samples': int(len(X_train)),
+            'test_samples': int(len(X_test)),
+            'model_selection': selection or None,
+            'data_source': data_source,
+            'sklearn_version': sklearn.__version__,
+        }
+
         if hasattr(self.model, 'coef_'):
-            feature_importance = dict(zip(
-                self.feature_names,
-                abs(self.model.coef_[0])
-            ))
-            self.model_metrics['feature_importance'] = feature_importance
-        
-        # Save model
+            coefficients = dict(zip(self.feature_names, (float(c) for c in self.model.coef_[0])))
+            self.model_metrics['coefficients'] = coefficients
+            self.model_metrics['feature_importance'] = {k: abs(v) for k, v in coefficients.items()}
+
         self.save_model()
-        
+
         return {
             'success': True,
             'metrics': self.model_metrics,
@@ -291,50 +380,7 @@ class EngagementPredictor:
             'test_samples': len(X_test),
             'trained_at': datetime.utcnow().isoformat()
         }
-    
-    def _compare_models(self, X_train, y_train, X_test, y_test):
-        """
-        Compare different algorithms and select the best one
-        
-        Returns:
-            best_model, best_score, all_results dict
-        """
-        algorithms = ['logistic', 'svm', 'neural']
-        results = {}
-        best_model = None
-        best_score = 0
-        
-        for algo in algorithms:
-            print(f"Training {algo} model...")
-            model = self._create_model(algo)
-            model.fit(X_train, y_train)
-            
-            # Evaluate
-            y_pred = model.predict(X_test)
-            accuracy = accuracy_score(y_test, y_pred)
-            f1 = f1_score(y_test, y_pred, average='weighted')
-            
-            # Combined score (accuracy + f1) / 2
-            combined_score = (accuracy + f1) / 2
-            
-            results[algo] = {
-                'accuracy': accuracy,
-                'precision': precision_score(y_test, y_pred, average='weighted'),
-                'recall': recall_score(y_test, y_pred, average='weighted'),
-                'f1_score': f1,
-                'combined_score': combined_score
-            }
-            
-            if combined_score > best_score:
-                best_score = combined_score
-                best_model = model
-                self.algorithm = algo
-        
-        results['best_algorithm'] = self.algorithm
-        results['comparison_completed'] = True
-        
-        return best_model, best_score, results
-    
+
     def save_model(self):
         """Save the trained model and scaler"""
         os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
@@ -349,6 +395,7 @@ class EngagementPredictor:
         }
         
         joblib.dump(model_data, self.model_path)
+        self._loaded_mtime = os.path.getmtime(self.model_path)
         print(f"Model saved to {self.model_path}")
     
     def load_model(self):
@@ -360,6 +407,7 @@ class EngagementPredictor:
             self.algorithm = model_data.get('algorithm', 'logistic')
             self.model_metrics = model_data.get('metrics', {})
             self.feature_names = model_data.get('feature_names', self.feature_names)
+            self._loaded_mtime = os.path.getmtime(self.model_path)
             print(f"Model loaded from {self.model_path} (algorithm: {self.algorithm})")
             return True
         except Exception as e:
@@ -368,6 +416,7 @@ class EngagementPredictor:
     
     def get_model_info(self):
         """Get information about the current model"""
+        self._refresh_if_updated()
         if self.model is None:
             return {
                 'trained': False,
@@ -454,22 +503,28 @@ class EngagementPredictor:
         return output_path
 
 
-def generate_synthetic_training_data(n_samples=1000):
+def generate_synthetic_training_data(n_samples=1000, random_state=42):
     """
-    Generate realistic synthetic training data with naturally overlapping class
-    distributions, yielding held-out accuracy in the 82-90 % range.
+    Generate synthetic training data with naturally overlapping class
+    distributions.
 
     Strategy: derive all five features from a shared latent engagement score
     (+ per-feature noise) so the class boundary is genuinely fuzzy.  About
     12 % of labels are flipped to model real-world annotation uncertainty.
 
+    Because the labels come from this formula, accuracy on this data shows
+    how well a model recovers the formula - not how well it predicts real
+    students. About 12 % of labels are flipped, so no model can exceed
+    roughly 88 % accuracy on it.
+
     Args:
         n_samples: Number of samples to generate
+        random_state: Seed; pass a different value to get fresh, unseen data
 
     Returns:
         pandas DataFrame with synthetic user engagement data
     """
-    rng = np.random.default_rng(42)
+    rng = np.random.default_rng(random_state)
 
     # Latent engagement: values in [0, 1]; 0 = fully disengaged, 1 = fully engaged.
     # Use a bimodal-ish distribution with a broad overlap zone.

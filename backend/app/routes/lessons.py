@@ -172,7 +172,8 @@ def start_lesson(lesson_id):
         if not progress.started_at:
             progress.started_at = datetime.utcnow()
     
-    progress.attempts += 1
+    # attempts is None on a new Progress object until it is flushed
+    progress.attempts = (progress.attempts or 0) + 1
     db.session.commit()
     
     return jsonify({
@@ -242,7 +243,7 @@ def complete_lesson(lesson_id):
           $ref: '#/definitions/Error'
     """
     user_id = int(get_jwt_identity())
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     
     # Get lesson
     lesson = Lesson.query.get(lesson_id)
@@ -277,7 +278,7 @@ def complete_lesson(lesson_id):
     # Award XP to user and record time for ML feature tracking
     user = User.query.get(user_id)
     leveled_up = user.add_xp(lesson.xp_reward)
-    user.lessons_completed += 1
+    user.lessons_completed = (user.lessons_completed or 0) + 1
     # Update total_time_spent (in minutes) so ML engagement features are accurate
     user.total_time_spent = (user.total_time_spent or 0) + max(0, int(time_spent) // 60)
     

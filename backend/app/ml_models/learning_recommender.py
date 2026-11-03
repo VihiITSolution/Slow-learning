@@ -3,7 +3,6 @@ Learning Recommendation System
 Recommends next best lessons based on user performance and preferences.
 """
 import numpy as np
-import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 import joblib
@@ -12,162 +11,187 @@ import json
 from datetime import datetime
 
 
+# Lessons in this app use beginner / intermediate / advanced, while older code
+# and the admin UI use easy / medium / hard. Both map to the same levels.
+DIFFICULTY_RANK = {
+    'easy': 1, 'beginner': 1,
+    'medium': 2, 'intermediate': 2,
+    'hard': 3, 'advanced': 3,
+}
+RANK_LABEL = {1: 'beginner', 2: 'intermediate', 3: 'advanced'}
+
+
+def difficulty_rank(level):
+    """1 = beginner/easy, 2 = intermediate/medium, 3 = advanced/hard (unknown -> 1)."""
+    return DIFFICULTY_RANK.get(str(level or '').strip().lower(), 1)
+
+
 class LearningRecommender:
     def __init__(self, model_path='app/ml_models/saved_models/recommender_model.pkl'):
         """Initialize the learning recommendation system"""
         self.model_path = model_path
         self.lesson_features = None
         self.tfidf_vectorizer = TfidfVectorizer(max_features=100)
-        
+        self._signature = None
+
+    @staticmethod
+    def _lessons_signature(lessons_df):
+        """Fingerprint of the lesson catalogue, so cached features are rebuilt when it changes."""
+        columns = [c for c in ('id', 'title', 'description', 'category', 'difficulty_level') if c in lessons_df]
+        return tuple(tuple(str(v) for v in row) for row in lessons_df[columns].itertuples(index=False))
+
     def build_lesson_features(self, lessons_df):
         """
-        Build feature matrix for lessons
-        
+        Build the TF-IDF feature matrix for lessons (title + description + category).
+
         Args:
-            lessons_df: DataFrame with lesson data (id, title, description, category, difficulty)
+            lessons_df: DataFrame with lesson data (id, title, description, category, difficulty_level)
         """
-        # Combine text features
-        lessons_df['combined_features'] = (
-            lessons_df['title'].fillna('') + ' ' + 
-            lessons_df['description'].fillna('') + ' ' + 
-            lessons_df['category'].fillna('')
+        if lessons_df is None or lessons_df.empty:
+            self.lesson_features, self._signature = None, None
+            return
+        text = (
+            lessons_df['title'].fillna('').astype(str) + ' ' +
+            lessons_df['description'].fillna('').astype(str) + ' ' +
+            lessons_df['category'].fillna('').astype(str)
         )
-        
-        # Create TF-IDF features
-        tfidf_matrix = self.tfidf_vectorizer.fit_transform(lessons_df['combined_features'])
-        
-        # Add difficulty encoding
-        difficulty_encoding = pd.get_dummies(lessons_df['difficulty_level'], prefix='diff')
-        
+        self.tfidf_vectorizer = TfidfVectorizer(max_features=100)
+        try:
+            tfidf_matrix = self.tfidf_vectorizer.fit_transform(text)
+        except ValueError:  # no usable words at all
+            self.lesson_features, self._signature = None, None
+            return
         self.lesson_features = {
             'tfidf_matrix': tfidf_matrix,
-            'difficulty': difficulty_encoding.values,
-            'lesson_ids': lessons_df['id'].values
+            'difficulty': lessons_df['difficulty_level'].map(difficulty_rank).values,
+            'lesson_ids': lessons_df['id'].astype(int).values,
         }
-        
-        self.save_model()
-    
-    def get_content_based_recommendations(self, user_history, all_lessons, n_recommendations=5):
+        self._signature = self._lessons_signature(lessons_df)
+
+    def _ensure_features(self, all_lessons):
+        if self.lesson_features is None or self._signature != self._lessons_signature(all_lessons):
+            self.build_lesson_features(all_lessons)
+
+    @staticmethod
+    def _sort_key_columns(lessons_df):
+        df = lessons_df.copy()
+        df['_rank'] = df['difficulty_level'].map(difficulty_rank) if 'difficulty_level' in df else 1
+        df['_order'] = df['order_index'].fillna(0) if 'order_index' in df else 0
+        return df
+
+    def get_content_based_recommendations(self, user_history, all_lessons, n_recommendations=5,
+                                          candidate_ids=None):
         """
-        Get lesson recommendations based on user's learning history
-        
+        Recommend lessons similar to the ones the student has completed.
+
+        Similarity is computed against the FULL catalogue (so completed lessons
+        are found), then only candidate lessons are ranked: not completed, and
+        within candidate_ids when given.
+
         Args:
             user_history: list of lesson IDs the user has completed
             all_lessons: DataFrame of all available lessons
             n_recommendations: number of recommendations to return
-        
+            candidate_ids: optional set of lesson IDs allowed in the result
+
         Returns:
-            list of recommended lesson IDs with scores
+            list of {'lesson_id', 'score', 'reason'} dicts
         """
-        if not user_history:
-            # Return beginner-friendly lessons for new users
-            return self._get_beginner_recommendations(all_lessons, n_recommendations)
-        
-        # Build lesson features if not already done
-        if self.lesson_features is None:
-            self.build_lesson_features(all_lessons)
-        
-        # Get features of completed lessons
-        completed_indices = [
-            i for i, lesson_id in enumerate(self.lesson_features['lesson_ids']) 
-            if lesson_id in user_history
-        ]
-        
+        if all_lessons is None or all_lessons.empty:
+            return []
+        history = {int(x) for x in (user_history or [])}
+        candidates = all_lessons[~all_lessons['id'].astype(int).isin(history)]
+        if candidate_ids is not None:
+            allowed = {int(x) for x in candidate_ids}
+            candidates = candidates[candidates['id'].astype(int).isin(allowed)]
+        if candidates.empty:
+            return []
+
+        self._ensure_features(all_lessons)
+        if not history or self.lesson_features is None:
+            return self._get_beginner_recommendations(candidates, n_recommendations)
+
+        ids = list(self.lesson_features['lesson_ids'])
+        completed_indices = [i for i, lesson_id in enumerate(ids) if lesson_id in history]
         if not completed_indices:
-            return self._get_beginner_recommendations(all_lessons, n_recommendations)
-        
-        # Calculate user preference vector (average of completed lessons)
-        completed_features = self.lesson_features['tfidf_matrix'][completed_indices]
+            return self._get_beginner_recommendations(candidates, n_recommendations)
+
+        matrix = self.lesson_features['tfidf_matrix']
         # Use np.asarray to avoid deprecated np.matrix (sparse .mean returns np.matrix in older scipy)
-        user_profile = np.asarray(completed_features.mean(axis=0))
-        
-        # Calculate similarity with all lessons
-        similarities = cosine_similarity(user_profile, self.lesson_features['tfidf_matrix']).flatten()
-        
-        # Filter out already completed lessons
-        available_indices = [
-            i for i, lesson_id in enumerate(self.lesson_features['lesson_ids'])
-            if lesson_id not in user_history
+        user_profile = np.asarray(matrix[completed_indices].mean(axis=0))
+        similarities = cosine_similarity(user_profile, matrix).flatten()
+        similarity_by_id = dict(zip(ids, similarities))
+
+        ranked = self._sort_key_columns(candidates)
+        ranked['_score'] = ranked['id'].astype(int).map(similarity_by_id).fillna(0.0)
+        # Most similar first; ties go to the easier, earlier lesson
+        ranked = ranked.sort_values(['_score', '_rank', '_order', 'id'], ascending=[False, True, True, True])
+
+        return [
+            {
+                'lesson_id': int(row['id']),
+                'score': float(row['_score']),
+                'reason': 'Similar to lessons you completed' if row['_score'] > 0 else 'Next lesson to try',
+            }
+            for _, row in ranked.head(n_recommendations).iterrows()
         ]
-        
-        # Get top recommendations
-        available_similarities = [(i, similarities[i]) for i in available_indices]
-        available_similarities.sort(key=lambda x: x[1], reverse=True)
-        
-        # Return top N recommendations
-        recommendations = []
-        for idx, score in available_similarities[:n_recommendations]:
-            lesson_id = self.lesson_features['lesson_ids'][idx]
-            recommendations.append({
-                'lesson_id': int(lesson_id),
-                'score': float(score),
-                'reason': 'Based on your learning history'
-            })
-        
-        return recommendations
-    
+
     def get_adaptive_recommendations(self, user_data, all_lessons, n_recommendations=5):
         """
-        Get adaptive recommendations based on user performance
-        
+        Recommend lessons at a difficulty that suits the student's quiz performance.
+
         Args:
             user_data: dict with:
                 - completed_lessons: list of completed lesson IDs
-                - avg_quiz_score: average quiz score
-                - difficulty_preference: preferred difficulty level
+                - avg_quiz_score: average quiz score (None/missing -> 70)
             all_lessons: DataFrame of all available lessons
             n_recommendations: number of recommendations to return
-        
+
         Returns:
-            list of recommended lesson IDs
+            list of {'lesson_id', 'score', 'reason'} dicts
         """
-        completed_lessons = user_data.get('completed_lessons', [])
-        avg_score = user_data.get('avg_quiz_score', 70)
-        
-        # Determine appropriate difficulty
+        if all_lessons is None or all_lessons.empty:
+            return []
+        completed_lessons = user_data.get('completed_lessons', []) or []
+        avg_score = user_data.get('avg_quiz_score')
+        avg_score = 70 if avg_score is None else avg_score
+
         if avg_score >= 80:
-            target_difficulty = ['medium', 'hard']
+            target_ranks = {2, 3}
         elif avg_score >= 60:
-            target_difficulty = ['easy', 'medium']
+            target_ranks = {1, 2}
         else:
-            target_difficulty = ['easy']
-        
-        # Filter lessons by difficulty
-        filtered_lessons = all_lessons[
-            (all_lessons['difficulty_level'].isin(target_difficulty)) &
-            (~all_lessons['id'].isin(completed_lessons))
-        ]
-        
-        # Get content-based recommendations from filtered set
+            target_ranks = {1}
+
+        remaining = all_lessons[~all_lessons['id'].astype(int).isin({int(x) for x in completed_lessons})]
+        at_level = remaining[remaining['difficulty_level'].map(difficulty_rank).isin(target_ranks)]
+        # If nothing is left at the target level, fall back to any remaining lesson
+        candidate_ids = set((at_level if not at_level.empty else remaining)['id'].astype(int))
+
         recommendations = self.get_content_based_recommendations(
-            completed_lessons, 
-            filtered_lessons, 
-            n_recommendations
+            completed_lessons, all_lessons, n_recommendations, candidate_ids=candidate_ids
         )
-        
-        # Add difficulty-based reasoning
+        level = RANK_LABEL[min(target_ranks)]
         for rec in recommendations:
-            rec['reason'] = f"Matched to your performance level ({target_difficulty[0]})"
-        
+            rec['reason'] = f"{rec['reason']} (suits your level: {level})"
         return recommendations
-    
+
     def _get_beginner_recommendations(self, all_lessons, n=5):
-        """Get beginner-friendly recommendations for new users"""
-        beginner_lessons = all_lessons[
-            all_lessons['difficulty_level'] == 'easy'
-        ].sort_values('order_index').head(n)
-        
+        """Easiest lessons first (then by course order) for students with no history."""
+        if all_lessons is None or all_lessons.empty:
+            return []
+        ranked = self._sort_key_columns(all_lessons).sort_values(['_rank', '_order', 'id'])
         return [
             {
                 'lesson_id': int(row['id']),
                 'score': 1.0,
-                'reason': 'Recommended for beginners'
+                'reason': 'Good lesson to start with'
             }
-            for _, row in beginner_lessons.iterrows()
+            for _, row in ranked.head(n).iterrows()
         ]
-    
+
     def save_model(self):
-        """Save the recommendation model"""
+        """Save the recommendation model (call explicitly; recommendations no longer write to disk)"""
         os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
         
         model_data = {
@@ -183,6 +207,7 @@ class LearningRecommender:
             model_data = joblib.load(self.model_path)
             self.lesson_features = model_data['lesson_features']
             self.tfidf_vectorizer = model_data['tfidf_vectorizer']
+            self._signature = None  # unknown catalogue: rebuilt on next use
     
     def save_recommendations_to_json(self, user_data, recommendations, output_path=None, recommendation_type='content_based'):
         """

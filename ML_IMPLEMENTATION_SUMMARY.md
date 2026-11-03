@@ -105,21 +105,21 @@ That's it! The model is now active and ready to predict user engagement.
 
 ## 📈 Model Performance
 
-After training with 500 samples:
+After training with 3,000 synthetic samples (`python train_engagement_model.py --evaluate`):
 
 ```
-All Algorithms: 100% Accuracy
-├── Logistic Regression: 100% (Fast, interpretable)
-├── SVM: 100% (Robust, handles non-linear patterns)
-└── Neural Network: 100% (Complex patterns, best for scale)
+5-fold CV accuracy: Logistic 78.5% (chosen) · SVM 78.4% · Neural 77.6%
+Held-out test accuracy: 78.3% · ROC-AUC 0.84
+Best possible on this synthetic data: ~88% (12% of labels flipped on purpose)
+Not yet validated on real students - see ML_MODEL_DOCUMENTATION.md
 
 Training/Test Split: 80/20
-Feature Importance:
-  1. Days Inactive (35%)
-  2. Login Streak (25%)
-  3. Avg Quiz Score (20%)
-  4. Time Spent (15%)
-  5. Lessons Completed (5%)
+Feature Importance (share of |standardised coefficient|):
+  1. Time Spent Today (35.6%)
+  2. Days Inactive (18.2%)
+  3. Login Streak (16.1%)
+  4. Lessons Completed This Week (15.8%)
+  5. Avg Quiz Score (14.3%)
 ```
 
 ## 💡 Usage Examples
@@ -274,7 +274,7 @@ python -c "from app import create_app; app = create_app(); print('OK')"
 ## 🎉 Success Metrics
 
 After implementation, you should see:
-- ✅ Model accuracy >85%
+- ✅ Model accuracy ~78% on held-out synthetic data (validate on real students next)
 - ✅ API response time <500ms
 - ✅ Daily predictions for all users
 - ✅ Automated interventions for at-risk users
@@ -324,7 +324,7 @@ With this implementation, you can:
 
 ## 🚀 Ready to Launch!
 
-Your Engagement Prediction Model is fully functional and production-ready. The model has been trained and tested with excellent results (100% accuracy on synthetic data).
+Your Engagement Prediction Model is fully functional and production-ready. The model has been trained and tested on synthetic data (78% held-out accuracy); it still needs validation on real students.
 
 **Start using it now:**
 ```bash

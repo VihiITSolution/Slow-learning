@@ -8,8 +8,14 @@ from app import db
 from app.models.user import User
 from app.models.progress import Progress
 from app.models.quiz import QuizAttempt
-from app.ml_models.engagement_predictor import EngagementPredictor
+from app.ml_models.engagement_predictor import EngagementPredictor, rule_based_engagement_label
 from app.services.notification_service import NotificationService
+
+
+# A student this new with no lessons or quizzes has no activity history yet,
+# so the model would only see zeros and call them "critical". They are
+# reported as "new" (engaged=None) instead and get no automatic interventions.
+NEW_STUDENT_DAYS = 7
 
 
 class EngagementService:
@@ -46,16 +52,24 @@ class EngagementService:
         # Convert seconds to minutes
         time_spent_today = time_spent_today / 60
         
-        # Average quiz score
+        # Average quiz score. None when the student has not taken a quiz yet:
+        # the predictor treats it as missing (training mean) instead of 0%.
         avg_quiz_score = db.session.query(
             func.avg(QuizAttempt.score)
         ).filter(
             QuizAttempt.user_id == user_id,
             QuizAttempt.score.isnot(None)
-        ).scalar() or 0
+        ).scalar()
+        avg_quiz_score = float(avg_quiz_score) if avg_quiz_score is not None else None
         
-        # Login streak (from user model)
-        login_streak = user.current_streak or 0
+        # Login streak. current_streak is only recalculated when the student
+        # logs in, so a student who stopped coming would keep their old
+        # streak. It only counts if the last login was today or yesterday.
+        last_login_date = user.last_login.date() if user.last_login else None
+        if last_login_date and (today - last_login_date).days <= 1:
+            login_streak = user.current_streak or 0
+        else:
+            login_streak = 0
         
         # Lessons completed in the last week
         lessons_completed_week = db.session.query(
@@ -66,16 +80,24 @@ class EngagementService:
             Progress.completed_at >= week_ago
         ).scalar() or 0
         
-        # Days inactive (days since last login)
+        # Days inactive (days since last login), capped at 60 like the model's
+        # training range
         if user.last_login:
-            days_inactive = (datetime.utcnow() - user.last_login).days
+            days_inactive = min((datetime.utcnow() - user.last_login).days, 60)
         else:
-            days_inactive = 999  # Never logged in
+            days_inactive = 60  # Never logged in
+        
+        lessons_completed_total = Progress.query.filter_by(user_id=user_id, status='completed').count()
+        quiz_attempts = QuizAttempt.query.filter_by(user_id=user_id).count()
+        account_age_days = (datetime.utcnow() - user.created_at).days if user.created_at else None
         
         return {
             'user_id': user_id,
+            'lessons_completed_total': lessons_completed_total,
+            'quiz_attempts': quiz_attempts,
+            'account_age_days': account_age_days,
             'time_spent_today': float(time_spent_today),
-            'avg_quiz_score': float(avg_quiz_score),
+            'avg_quiz_score': avg_quiz_score,
             'login_streak': int(login_streak),
             'lessons_completed_week': int(lessons_completed_week),
             'days_inactive': int(days_inactive),
@@ -119,6 +141,26 @@ class EngagementService:
             },
             'timestamp': datetime.utcnow().isoformat()
         }
+        
+        age = user_features.get('account_age_days')
+        is_new = (
+            user_features.get('lessons_completed_total', 0) == 0
+            and user_features.get('quiz_attempts', 0) == 0
+            and age is not None and age < NEW_STUDENT_DAYS
+        )
+        result['insufficient_data'] = is_new
+        if is_new:
+            result['model_prediction'] = {
+                'engaged': prediction.get('engaged'),
+                'risk_level': prediction.get('risk_level'),
+            }
+            result['engaged'] = None
+            result['risk_level'] = 'new'
+            result['recommendation'] = [
+                'New student - not enough activity yet to judge engagement',
+                'Help them start their first lesson',
+                'Check again after a few lessons',
+            ]
         
         return result
     
@@ -188,7 +230,15 @@ class EngagementService:
         """
         actions_taken = []
         
-        if not prediction_result.get('engaged'):
+        if prediction_result.get('insufficient_data'):
+            return {
+                'user_id': user_id,
+                'actions_taken': actions_taken,
+                'skipped': 'New student - not enough activity yet for an intervention',
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        
+        if prediction_result.get('engaged') is False:
             risk_level = prediction_result.get('risk_level')
             confidence = prediction_result.get('confidence', 0)
             
@@ -271,8 +321,10 @@ class EngagementService:
         all_predictions = self.predict_all_users_engagement()
         
         total_users = len(all_predictions)
-        engaged_users = sum(1 for p in all_predictions if p.get('engaged'))
-        disengaged_users = total_users - engaged_users
+        engaged_users = sum(1 for p in all_predictions if p.get('engaged') is True)
+        disengaged_users = sum(1 for p in all_predictions if p.get('engaged') is False)
+        new_students = sum(1 for p in all_predictions if p.get('insufficient_data'))
+        assessed = [p for p in all_predictions if p.get('engaged') is not None]
         
         # Risk level breakdown
         risk_breakdown = {}
@@ -280,14 +332,15 @@ class EngagementService:
             risk = pred.get('risk_level', 'unknown')
             risk_breakdown[risk] = risk_breakdown.get(risk, 0) + 1
         
-        # Average metrics
-        avg_confidence = sum(p.get('confidence', 0) for p in all_predictions) / max(total_users, 1)
+        # Average metrics (only students the model could actually assess)
+        avg_confidence = sum(p.get('confidence', 0) for p in assessed) / max(len(assessed), 1)
         
         return {
             'total_users': total_users,
             'engaged_users': engaged_users,
             'disengaged_users': disengaged_users,
-            'engagement_rate': (engaged_users / max(total_users, 1)) * 100,
+            'new_students': new_students,
+            'engagement_rate': (engaged_users / max(len(assessed), 1)) * 100,
             'risk_breakdown': risk_breakdown,
             'average_confidence': avg_confidence,
             'timestamp': datetime.utcnow().isoformat()
@@ -313,13 +366,9 @@ class EngagementService:
             except Exception:
                 continue
 
-            # Label heuristic: engaged if active recently with some learning activity
-            lessons_ok = features['lessons_completed_week'] > 0
-            quiz_ok = features['avg_quiz_score'] >= 50
-            inactive_ok = features['days_inactive'] <= 2
-            streak_ok = features['login_streak'] >= 1
-
-            engaged = 1 if (lessons_ok or streak_ok) and (quiz_ok or inactive_ok) else 0
+            # Same rule as train_engagement_model.py (a heuristic, not a
+            # teacher judgement - see rule_based_engagement_label)
+            engaged = rule_based_engagement_label(features)
 
             rows.append({
                 'time_spent_today': features['time_spent_today'],

@@ -13,49 +13,34 @@ pip install -r requirements.txt
 python train_engagement_model.py
 ```
 
-Expected output:
+Expected output (`python train_engagement_model.py --evaluate`, default 3,000 samples):
 ```
-==============================================================
+============================================================
 ENGAGEMENT PREDICTION MODEL TRAINING
-==============================================================
+============================================================
+Data: synthetic generator, 3000 samples, seed 42
+Engaged: 1483 | Not engaged: 1517
 
-Step 1: Generating 1000 synthetic training samples...
-✓ Generated 1000 samples
-  - Engaged users: 600
-  - Disengaged users: 400
+Chosen algorithm: LOGISTIC
+Model selection (5-fold cross-validation on the training split):
+  logistic  0.785 ± 0.016
+  svm       0.784 ± 0.016
+  neural    0.776 ± 0.015
 
-Step 2: Training model (algorithm: auto)...
+Held-out test split (600 rows, not used for training or selection):
+  Accuracy:  0.783
+  Precision: 0.784
+  Recall:    0.783
+  F1 score:  0.783
+  ROC-AUC:   0.844
+  Confusion matrix [[TN, FP], [FN, TP]]: [[245, 58], [72, 225]]
 
-✓ Training completed!
+Fresh synthetic data (3 x 10000 unseen students):
+  Accuracy:  0.783 (range 0.777-0.787)
+  ROC-AUC:   0.841
+  Note: about 12% of synthetic labels are flipped on purpose, so ~0.88 is the maximum possible.
 
-==============================================================
-TRAINING RESULTS
-==============================================================
-
-Best Algorithm Selected: NEURAL
-
-Algorithm Comparison:
-------------------------------------------------------------
-
-LOGISTIC:
-  Accuracy:  0.8450
-  Precision: 0.8321
-  Recall:    0.8567
-  F1 Score:  0.8442
-
-SVM:
-  Accuracy:  0.8623
-  Precision: 0.8512
-  Recall:    0.8734
-  F1 Score:  0.8621
-
-NEURAL:
-  Accuracy:  0.8750
-  Precision: 0.8654
-  Recall:    0.8823
-  F1 Score:  0.8738
-
-Model saved to: app/ml_models/saved_models/engagement_model.pkl
+Model saved to app/ml_models/saved_models/engagement_model.pkl
 ```
 
 ### Step 3: Start the Server

@@ -383,7 +383,8 @@ def seed(app=None):
             return  # Already seeded
 
         print("[seed] Seeding interactive primary lessons...")
-        for data in LESSONS:
+        for item in LESSONS:
+            data = dict(item)  # copy: popping from LESSONS itself broke every later call
             quiz_data = data.pop("quiz")
             content_json = json.dumps(data.pop("content"))
 
