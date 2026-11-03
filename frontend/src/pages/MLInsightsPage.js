@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import '../styles/App.css';
 
 function MLInsightsPage() {
@@ -27,7 +27,7 @@ function MLInsightsPage() {
 
   const fetchModelInfo = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/ml/model/info');
+      const response = await api.get('/ml/model/info');
       setModelInfo(response.data.data);
       setLoading(false);
     } catch (error) {
@@ -38,17 +38,10 @@ function MLInsightsPage() {
 
   const fetchDisengagedUsers = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      // Only teachers and admins can see disengaged users; skip for students
-      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
-      if (!storedUser || !['teacher', 'admin'].includes(storedUser.role)) return;
-
-      const response = await axios.get('http://localhost:5000/api/ml/engagement/disengaged', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setDisengagedUsers(response.data.data?.disengaged_users || []);
+      const response = await api.get('/ml/engagement/disengaged');
+      // The API returns the list itself in `data`
+      const list = response.data?.data;
+      setDisengagedUsers(Array.isArray(list) ? list : list?.disengaged_users || []);
     } catch (error) {
       // 403 = not a teacher/admin; silently ignore
       if (error.response?.status !== 403 && error.response?.status !== 401) {
@@ -60,7 +53,7 @@ function MLInsightsPage() {
   const handleTestPrediction = async () => {
     setPredicting(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/ml/model/test', testData);
+      const response = await api.post('/ml/model/test', testData);
       setPrediction(response.data.data);
     } catch (error) {
       console.error('Prediction failed:', error);
@@ -322,13 +315,13 @@ function MLInsightsPage() {
                 <div key={idx} className="user-card">
                   <div className="user-header">
                     <strong>{user.user_info?.username || 'User'}</strong>
-                    <span className={`badge risk-${user.prediction?.risk_level}`}>
-                      {user.prediction?.risk_level}
+                    <span className={`badge risk-${user.risk_level}`}>
+                      {user.risk_level}
                     </span>
                   </div>
                   <div className="user-stats">
-                    <span>Confidence: {(user.prediction?.confidence * 100).toFixed(1)}%</span>
-                    <span>Time: {user.features?.time_spent_today}min</span>
+                    <span>Confidence: {((user.confidence || 0) * 100).toFixed(1)}%</span>
+                    <span>Time today: {Math.round(user.features?.time_spent_today || 0)} min</span>
                     <span>Score: {typeof user.features?.avg_quiz_score === 'number' ? `${user.features.avg_quiz_score.toFixed(0)}%` : 'No quiz yet'}</span>
                     <span>Streak: {user.features?.login_streak} days</span>
                   </div>
@@ -339,7 +332,7 @@ function MLInsightsPage() {
         )}
 
         <div className="actions">
-          <button onClick={() => navigate('/app/dashboard')} className="secondary-button">
+          <button onClick={() => navigate('/teacher/dashboard')} className="secondary-button">
             Back to Dashboard
           </button>
         </div>

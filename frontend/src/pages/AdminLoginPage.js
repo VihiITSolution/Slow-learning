@@ -1,139 +1,104 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import api from "../services/api";
-import authService from "../services/authService";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { homeFor } from '../components/common/RoleRoute';
+import '../styles/Auth.css';
 
+/**
+ * Staff sign-in. Uses the same session as the main login, so after signing
+ * in the admin (or teacher) is really logged in everywhere in the app.
+ */
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login, logout } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
-    
     try {
-      // Use email as username for admin login
-      const response = await authService.login(email, password);
-      
-      // Check if user has admin or teacher role
-      if (response.user && (response.user.role === 'admin' || response.user.role === 'teacher')) {
-        // Redirect to admin dashboard
-        navigate('/admin/dashboard');
-      } else {
-        setError('Access denied. Admin or teacher role required.');
-        authService.logout();
+      const response = await login(identifier.trim(), password);
+      if (response.user?.role === 'student') {
+        logout();
+        setError('This sign-in is for admins and teachers. Students, please use the main login.');
+        return;
       }
+      navigate(homeFor(response.user), { replace: true });
     } catch (err) {
-      setError(err.error || err.message || 'Invalid credentials');
+      setError(err.error || err.message || 'Invalid username/email or password');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="font-display relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark overflow-x-hidden">
-      <div className="flex h-full grow flex-col">
-        <div className="px-4 flex flex-1 justify-center items-center py-10 md:py-20">
-          <div className="flex flex-col w-full max-w-4xl flex-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 w-full bg-white dark:bg-slate-900/50 shadow-xl rounded-xl overflow-hidden">
-              {/* Left side - Image */}
-              <div className="hidden md:flex w-full h-full p-4">
-                <div
-                  className="w-full bg-center bg-no-repeat bg-cover rounded-lg"
-                  data-alt="Abstract illustration with colorful geometric shapes representing learning and growth"
-                  style={{
-                    backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDmQbXvrOWONcC2fEuwkLcTpd-_sWO7IKT0jGPFdBDMordPgg4tBcob4eFbAejcD63w8mp4I4WMeRfw_FyFXQcSMED-og8HBxQzUPB4shJQFIUzpoK3Wt08gCaY1kmoZ6DaXCft86mOL_2vJILuucS3gel_iyplYYsw1mnMc_rmdYA0OFWDmBzZw4CA4lL5NbJRrXmwmRnGwJNv7IOBymFGXhn7o_6PX-myXTyHylCDcsTL2BkWOA28ZPjqbqJgzH2X6vUf8LVRC-Xy")',
-                  }}
-                />
-              </div>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-header">
+          <h1>⚙️ LearnQuest Admin</h1>
+          <p>Sign in to manage users, lessons and reports</p>
+        </div>
 
-              {/* Right side - Login Form */}
-              <div className="flex flex-col p-8 sm:p-12 justify-center">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-primary text-white flex items-center justify-center p-2 rounded-lg">
-                    <span className="material-symbols-outlined !text-2xl">school</span>
-                  </div>
-                  <h2 className="text-xl font-bold text-text-light dark:text-text-dark">MicroLearn</h2>
-                </div>
+        <form onSubmit={handleSubmit} className="login-form">
+          {error && (
+            <div role="alert" style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', color: '#991b1b', borderRadius: 10, padding: '10px 14px', fontWeight: 600, fontSize: 14 }}>
+              {error}
+            </div>
+          )}
 
-                <h1 className="text-text-light dark:text-text-dark tracking-tight text-[32px] font-bold leading-tight text-left pb-2">
-                  Admin Portal
-                </h1>
-                <p className="text-text-light/70 dark:text-text-dark/70 text-base font-normal leading-normal pb-8">
-                  Welcome back, please enter your details.
-                </p>
-
-                <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
-                  {error && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                      <span className="block sm:inline">{error}</span>
-                    </div>
-                  )}
-                  
-                  <label className="flex flex-col w-full flex-1">
-                    <p className="text-text-light dark:text-text-dark text-base font-medium leading-normal pb-2">
-                      Email Address
-                    </p>
-                    <input
-                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-text-light dark:text-text-dark focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-border-light dark:border-border-dark bg-background-light dark:bg-slate-800 h-12 placeholder:text-text-light/50 dark:placeholder:text-text-dark/50 px-4 text-base font-normal leading-normal"
-                      placeholder="Enter your email address"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </label>
-
-                  <label className="flex flex-col w-full flex-1">
-                    <p className="text-text-light dark:text-text-dark text-base font-medium leading-normal pb-2">
-                      Password
-                    </p>
-                    <div className="flex w-full flex-1 items-stretch rounded-lg">
-                      <input
-                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-text-light dark:text-text-dark focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-border-light dark:border-border-dark bg-background-light dark:bg-slate-800 h-12 placeholder:text-text-light/50 dark:placeholder:text-text-dark/50 px-4 rounded-r-none border-r-0 pr-2 text-base font-normal leading-normal"
-                        placeholder="Enter your password"
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="text-text-light/60 dark:text-text-dark/60 flex border border-border-light dark:border-border-dark bg-background-light dark:bg-slate-800 items-center justify-center px-4 rounded-r-lg border-l-0"
-                      >
-                        <span className="material-symbols-outlined">
-                          {showPassword ? "visibility_off" : "visibility"}
-                        </span>
-                      </button>
-                    </div>
-                  </label>
-
-                  <div className="flex w-full pt-6 justify-center">
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="flex min-w-[84px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 flex-1 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 focus:ring-4 focus:ring-primary/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className="truncate">{loading ? 'Signing in...' : 'Admin Sign In'}</span>
-                    </button>
-                  </div>
-
-                  <div className="flex py-4 justify-center">
-                    <Link className="text-primary text-sm font-medium hover:underline" to="#">
-                      Forgot Password?
-                    </Link>
-                  </div>
-                </form>
-              </div>
+          <div className="form-field">
+            <label htmlFor="admin-identifier">Username or email</label>
+            <div className="input-wrapper">
+              <span className="icon">👤</span>
+              <input
+                id="admin-identifier"
+                type="text"
+                placeholder="admin or admin@school.lk"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                autoComplete="username"
+                required
+              />
             </div>
           </div>
-        </div>
+
+          <div className="form-field">
+            <label htmlFor="admin-password">Password</label>
+            <div className="input-wrapper">
+              <span className="icon">🔒</span>
+              <input
+                id="admin-password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                className="toggle-password"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" className="submit-btn" disabled={loading}>
+            {loading ? '⏳ Signing in...' : 'Sign in'}
+          </button>
+
+          <div className="signup-link">
+            Not an admin? <Link to="/login">Go to the main login</Link>
+          </div>
+        </form>
       </div>
     </div>
   );

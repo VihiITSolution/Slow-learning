@@ -18,12 +18,22 @@ const DashboardPage = () => {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch multiple endpoints in parallel
+      setError('');
+      setLoading(true);
+      // Fetch multiple endpoints in parallel; one failing request should not
+      // blank the whole page, but if all fail the student needs to know
+      let failures = 0;
+      const fallback = (data) => () => { failures += 1; return { data }; };
       const [analyticsRes, recommendationsRes, leaderboardRes] = await Promise.all([
-        api.get('/analytics/dashboard').catch(() => ({ data: null })),
-        api.get('/recommendations/personalized').catch(() => ({ data: { recommendations: [] } })),
-        api.get('/gamification/leaderboard?limit=5').catch(() => ({ data: { leaderboard: [] } }))
+        api.get('/analytics/dashboard').catch(fallback(null)),
+        api.get('/recommendations/personalized').catch(fallback({ recommendations: [] })),
+        api.get('/gamification/leaderboard?limit=5').catch(fallback({ leaderboard: [] }))
       ]);
+      if (failures === 3) {
+        setError('Failed to load dashboard. Please check your connection and try again.');
+        setLoading(false);
+        return;
+      }
 
       setAnalytics(analyticsRes.data);
       setRecommendations(recommendationsRes.data?.recommendations || []);
@@ -48,6 +58,7 @@ const DashboardPage = () => {
     return (
       <div className="dashboard-page">
         <div className="error">{error}</div>
+        <button className="btn-primary" onClick={fetchDashboardData} style={{ marginTop: 16 }}>Retry</button>
       </div>
     );
   }
@@ -61,13 +72,13 @@ const DashboardPage = () => {
       </div>
       
               {/* Stats Cards */}
-              <div className="stats-grid">
+              <div className="stats-grid dashboard-stats">
                 <div className="stat-card">
                   <div className="stat-icon">⭐</div>
                   <div className="stat-value">{user?.total_xp || 0}</div>
                   <div className="stat-label">YOUR XP</div>
                   <div style={{fontSize: '16px', fontWeight: '700', color: '#10b981', marginTop: '8px'}}>
-                    {analytics?.xp_gained_today > 0 ? `+${analytics.xp_gained_today} XP today! 🎯` : 'Earn XP today! 🎯'}
+                    Earn XP by finishing lessons 🎯
                   </div>
                 </div>
 
@@ -76,7 +87,7 @@ const DashboardPage = () => {
                   <div className="stat-value">Level {user?.level || 1}</div>
                   <div className="stat-label">CURRENT LEVEL</div>
                   <div style={{fontSize: '16px', fontWeight: '700', color: '#8b5cf6', marginTop: '8px'}}>
-                    {user?.level >= 5 ? 'Novice Coder!' : 'Keep Learning!'} 💜
+                    Keep learning! 💜
                   </div>
                 </div>
 
@@ -91,10 +102,12 @@ const DashboardPage = () => {
 
                 <div className="stat-card">
                   <div className="stat-icon">📚</div>
-                  <div className="stat-value">{analytics?.completion_percentage || 0}%</div>
+                  <div className="stat-value">{analytics?.user_stats?.completion_percentage ?? 0}%</div>
                   <div className="stat-label">PROGRESS</div>
                   <div style={{fontSize: '16px', fontWeight: '700', color: '#ec4899', marginTop: '8px'}}>
-                    Keep going! ✨
+                    {analytics?.user_stats
+                      ? `${analytics.user_stats.lessons_completed} of ${analytics.user_stats.total_lessons} lessons ✨`
+                      : 'Keep going! ✨'}
                   </div>
                 </div>
               </div>
@@ -111,12 +124,12 @@ const DashboardPage = () => {
                               {rec.lesson?.category === 'math' ? '📐' : '📝'}
                             </div>
                             <h3 style={{fontSize: '24px', fontWeight: '900', color: '#1f2937', marginBottom: '10px'}}>
-                              {rec.lesson?.title || `Lesson ${rec.lesson_id}`}
+                              {rec.lesson?.title || `Lesson ${rec.lesson?.id ?? rec.lesson_id}`}
                             </h3>
                             <p style={{fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '15px'}}>
-                              ⏱️ {rec.lesson?.duration || 15} minutes
+                              ⏱️ {rec.lesson?.estimated_time || 15} minutes
                             </p>
-                            <Link to={`/app/lessons/${rec.lesson_id}`}>
+                            <Link to={`/app/lessons/${rec.lesson?.id ?? rec.lesson_id}`}>
                               <button className="btn-primary">🚀 START LESSON</button>
                             </Link>
                           </div>

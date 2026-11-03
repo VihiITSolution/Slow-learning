@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authService, gamificationService } from '../services';
 import { toast } from 'react-toastify';
 import { FiEdit2, FiSave, FiMail, FiCalendar, FiTrendingUp } from 'react-icons/fi';
+import Avatar, { avatarSrc } from '../components/common/Avatar';
 import ProfilePictureUpload from '../components/common/ProfilePictureUpload';
 import '../styles/Profile.css';
 
@@ -11,6 +12,7 @@ const ProfilePage = () => {
   const { user, updateUser } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const isStudent = !user?.role || user.role === 'student';
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
 
   const { data: streakData } = useQuery({
@@ -79,7 +81,7 @@ const ProfilePage = () => {
           <div className="avatar-section">
             {editing ? (
               <ProfilePictureUpload
-                currentPicture={user?.profile_picture ? `/api/uploads/profile-pictures/${user.profile_picture}` : avatarUrl || user?.avatar_url}
+                currentPicture={avatarSrc({ ...user, avatar_url: avatarUrl || user?.avatar_url })}
                 onUploadSuccess={(fileUrl) => {
                   if (fileUrl) {
                     setAvatarUrl(fileUrl);
@@ -93,11 +95,7 @@ const ProfilePage = () => {
               />
             ) : (
               <>
-                <img 
-                  src={user?.profile_picture ? `/api/uploads/profile-pictures/${user.profile_picture}` : avatarUrl || user?.avatar_url || '/default-avatar.png'} 
-                  alt="Profile Avatar" 
-                  className="profile-avatar"
-                />
+                <Avatar user={{ ...user, avatar_url: avatarUrl || user?.avatar_url }} size={140} className="profile-avatar" />
                 <button 
                   onClick={() => setEditing(true)} 
                   className="edit-avatar-btn"
@@ -119,10 +117,17 @@ const ProfilePage = () => {
                 <FiCalendar />
                 <span>Joined {new Date(user?.created_at).toLocaleDateString()}</span>
               </div>
-              <div className="detail-item">
-                <FiTrendingUp />
-                <span>Level {user?.level}</span>
-              </div>
+              {isStudent ? (
+                <div className="detail-item">
+                  <FiTrendingUp />
+                  <span>Level {user?.level}</span>
+                </div>
+              ) : (
+                <div className="detail-item">
+                  <FiTrendingUp />
+                  <span>{user?.role === 'admin' ? 'Administrator' : 'Teacher'}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -159,6 +164,7 @@ const ProfilePage = () => {
           </button>
         )}
 
+        {isStudent && (<>
         {/* XP Progress */}
         <div className="profile-section">
           <h3>⭐ Progress</h3>
@@ -213,6 +219,7 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
+        </>)}
 
         {/* Learning Assessment Results */}
         {user?.learning_style && (

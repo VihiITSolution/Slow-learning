@@ -1,16 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/StudentDashboard.css';
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+  const isStaff = user?.role === 'teacher' || user?.role === 'admin';
+  const isStudentAccount = user?.role === 'student';
+  // A teacher opening a student's results: /student-dashboard?name=<username>
+  const viewedName = isStaff ? searchParams.get('name') : null;
+  const teacherView = Boolean(viewedName);
+  const backTo = teacherView ? '/teacher/dashboard?section=students' : isStudentAccount ? '/app/dashboard' : '/learning-helper';
   const [studentName, setStudentName] = useState('');
   const [recentSessions, setRecentSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNameModal, setShowNameModal] = useState(false);
 
   useEffect(() => {
+    if (viewedName) {
+      setStudentName(viewedName);
+      loadStudentSessions(viewedName);
+      return;
+    }
+    // Logged-in students play under their own account name
+    if (isStudentAccount) {
+      setStudentName(user.username);
+      loadStudentSessions(user.username);
+      return;
+    }
     // Check if student name exists in localStorage
     const savedName = localStorage.getItem('studentName');
     if (savedName) {
@@ -20,12 +40,13 @@ const StudentDashboard = () => {
       setShowNameModal(true);
       setLoading(false);
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewedName, isStudentAccount]);
 
   const loadStudentSessions = async (name) => {
     try {
       setLoading(true);
-      const response = await api.get(`/assessment/sessions/student/${name}`);
+      const response = await api.get(`/assessment/sessions/student/${encodeURIComponent(name)}`);
       setRecentSessions(response.data.sessions || []);
     } catch (error) {
       console.error('Error loading sessions:', error);
@@ -87,20 +108,34 @@ const StudentDashboard = () => {
     return { emoji: '💪', text: 'Keep Practicing!', class: 'practice' };
   };
 
+  // A teacher without a chosen student belongs on the student list
+  if (isStaff && !teacherView) {
+    return <Navigate to="/teacher/dashboard?section=students" replace />;
+  }
+
   return (
     <div className="student-dashboard-page">
-      <button className="back-to-home-btn" onClick={() => navigate('/learning-helper')}>
-        ← Back to Home
+      <button className="back-to-home-btn" onClick={() => navigate(backTo)}>
+        {teacherView ? '← Back to Student List' : isStudentAccount ? '← Back to My Dashboard' : '← Back to Home'}
       </button>
 
       <div className="dashboard-header">
-        <h1>🌟 Welcome, {studentName || 'Student'}! 🌟</h1>
-        <p>Ready to have fun and learn?</p>
+        {teacherView ? (
+          <>
+            <h1>📊 Game results for {studentName}</h1>
+            <p>Learning-game sessions and learning style</p>
+          </>
+        ) : (
+          <>
+            <h1>🌟 Welcome, {studentName || 'Student'}! 🌟</h1>
+            <p>Ready to have fun and learn?</p>
+          </>
+        )}
       </div>
 
       <div className="dashboard-content">
         {/* Start New Game Section */}
-        <div className="new-game-section">
+        {!teacherView && <div className="new-game-section">
           <div className="new-game-card">
             <div className="game-icon">🎮</div>
             <h2>Start New Adventure!</h2>
@@ -109,12 +144,12 @@ const StudentDashboard = () => {
               Start Playing! 🚀
             </button>
           </div>
-        </div>
+        </div>}
 
         {/* Student Stats */}
         {recentSessions.length > 0 && (
           <div className="student-stats">
-            <h3>📊 Your Amazing Stats</h3>
+            <h3>{teacherView ? '📊 Stats' : '📊 Your Amazing Stats'}</h3>
             <div className="stats-grid">
               <div className="stat-card">
                 <div className="stat-icon">🎯</div>
@@ -141,10 +176,10 @@ const StudentDashboard = () => {
 
         {/* Recent Sessions */}
         {loading ? (
-          <div className="loading-message">Loading your games... 🎮</div>
+          <div className="loading-message">Loading games... 🎮</div>
         ) : recentSessions.length > 0 ? (
           <div className="recent-sessions">
-            <h3>📜 Your Recent Adventures</h3>
+            <h3>{teacherView ? '📜 Recent Sessions' : '📜 Your Recent Adventures'}</h3>
             <div className="sessions-list">
               {recentSessions.slice(0, 5).map((session) => {
                 const performance = getPerformanceLevel(session.total_stars, session.games_completed);
@@ -178,7 +213,7 @@ const StudentDashboard = () => {
                     </div>
                     {session.primary_learning_style && (
                       <div className="learning-style-badge">
-                        <span>🎯 You are a {session.primary_learning_style}!</span>
+                        <span>🎯 {teacherView ? 'Learning style' : 'You are a'}: {session.primary_learning_style}</span>
                       </div>
                     )}
                   </div>
@@ -190,20 +225,20 @@ const StudentDashboard = () => {
           <div className="no-sessions">
             <div className="no-sessions-icon">🎮</div>
             <h3>No Games Yet!</h3>
-            <p>Start your first adventure by clicking the button above!</p>
+            <p>{teacherView ? `${studentName} has not played any learning games yet.` : 'Start your first adventure by clicking the button above!'}</p>
           </div>
         )}
 
-        {/* Change Name Button */}
-        <div className="settings-section">
+        {/* Change Name Button (only for children playing without an account) */}
+        {!teacherView && !isStudentAccount && <div className="settings-section">
           <button className="change-name-btn" onClick={() => setShowNameModal(true)}>
             ✏️ Change Name
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Name Modal */}
-      {showNameModal && (
+      {showNameModal && !teacherView && !isStudentAccount && (
         <div className="modal-overlay" onClick={() => !studentName && setShowNameModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>What's Your Name? 😊</h2>

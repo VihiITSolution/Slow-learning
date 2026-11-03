@@ -34,11 +34,12 @@
 }
 
 .auth-buttons {
-  position: absolute;
-  top: 0;
-  right: 0;
+  /* In normal flow above the title, so the buttons never cover it */
   display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
+  margin-bottom: 18px;
 }
 
 .auth-btn {

@@ -1,15 +1,7 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import RoleRoute from './RoleRoute';
 
-const PrivateRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-};
+/** Any logged-in user (kept for compatibility - prefer <RoleRoute roles={[...]}>). */
+const PrivateRoute = ({ children }) => <RoleRoute>{children}</RoleRoute>;
 
 export default PrivateRoute;

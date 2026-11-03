@@ -1255,3 +1255,32 @@
     padding: 16px 20px;
   }
 }
+
+/* Dashboard stat cards: stack icon, number and label so nothing is cut off
+   (Gamification.css styles .stat-value/.stat-label globally for its big cards) */
+.dashboard-stats {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.dashboard-stats .stat-card {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 24px 18px;
+}
+.dashboard-stats .stat-icon {
+  width: 64px;
+  height: 64px;
+  font-size: 34px;
+  margin-bottom: 4px;
+}
+.dashboard-stats .stat-value {
+  font-size: 2.1em;
+  margin: 4px 0 0;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.dashboard-stats .stat-label {
+  font-size: 0.85em;
+  letter-spacing: 1px;
+}
