@@ -10,6 +10,7 @@ const DashboardPage = () => {
   const [analytics, setAnalytics] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [today, setToday] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -24,10 +25,12 @@ const DashboardPage = () => {
       // blank the whole page, but if all fail the student needs to know
       let failures = 0;
       const fallback = (data) => () => { failures += 1; return { data }; };
-      const [analyticsRes, recommendationsRes, leaderboardRes] = await Promise.all([
+      const [analyticsRes, recommendationsRes, leaderboardRes, todayRes] = await Promise.all([
         api.get('/analytics/dashboard').catch(fallback(null)),
         api.get('/recommendations/personalized').catch(fallback({ recommendations: [] })),
-        api.get('/gamification/leaderboard?limit=5').catch(fallback({ leaderboard: [] }))
+        api.get('/gamification/leaderboard?limit=5').catch(fallback({ leaderboard: [] })),
+        // Today's challenges are extra: a failure here only hides that card
+        api.get('/activities/today').catch(() => ({ data: null }))
       ]);
       if (failures === 3) {
         setError('Failed to load dashboard. Please check your connection and try again.');
@@ -38,6 +41,7 @@ const DashboardPage = () => {
       setAnalytics(analyticsRes.data);
       setRecommendations(recommendationsRes.data?.recommendations || []);
       setLeaderboard(leaderboardRes.data?.leaderboard || []);
+      setToday(todayRes?.data?.challenges ? todayRes.data : null);
       setLoading(false);
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
@@ -147,67 +151,70 @@ const DashboardPage = () => {
                     )}
                   </div>
                   
-                  {/* Mini Games */}
+                  {/* Practice and games */}
                   <div style={{marginTop: '30px'}}>
                     <h2 className="page-title" style={{fontSize: '32px', marginBottom: '20px'}}>🎮 Play & Learn 🌈</h2>
                     <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px'}}>
                       <div className="game-card">
-                        <span style={{fontSize: '80px'}}>❓</span>
+                        <span style={{fontSize: '80px'}}>🎯</span>
                         <h3 style={{fontSize: '24px', fontWeight: '900', color: '#1f2937', marginTop: '15px'}}>
-                          Flashcard Frenzy
+                          Quick Practice
                         </h3>
                         <p style={{fontSize: '16px', fontWeight: '600', color: '#6b7280', margin: '10px 0'}}>
-                          Test your memory and speed!
+                          5 short questions in numbers, words or my world.
                         </p>
-                        <button className="btn-primary" style={{marginTop: '15px'}}>🎯 PLAY NOW</button>
+                        <Link to="/app/practice">
+                          <button className="btn-primary" style={{marginTop: '15px'}}>🎯 PRACTISE NOW</button>
+                        </Link>
                       </div>
 
                       <div className="game-card">
-                        <span style={{fontSize: '80px'}}>🔤</span>
+                        <span style={{fontSize: '80px'}}>🧩</span>
                         <h3 style={{fontSize: '24px', fontWeight: '900', color: '#1f2937', marginTop: '15px'}}>
-                          Word Weaver
+                          Learning Games
                         </h3>
                         <p style={{fontSize: '16px', fontWeight: '600', color: '#6b7280', margin: '10px 0'}}>
-                          Solve puzzles, build vocabulary.
+                          Maths, colours, memory, stories and drawing.
                         </p>
-                        <button className="btn-primary" style={{marginTop: '15px'}}>🎯 PLAY NOW</button>
+                        <Link to="/student-dashboard">
+                          <button className="btn-primary" style={{marginTop: '15px'}}>🎮 PLAY NOW</button>
+                        </Link>
                       </div>
                     </div>
                   </div>
 
-                  {/* Daily Challenges */}
+                  {/* Daily Challenges - worked out from what the student really did today */}
                   <div style={{marginTop: '30px'}}>
                     <h2 className="page-title" style={{fontSize: '32px', marginBottom: '20px'}}>⭐ Today's Challenges ⭐</h2>
                     <div className="challenges-card">
-                      <div className="challenge-item">
-                        <input type="checkbox" defaultChecked style={{width: '24px', height: '24px', cursor: 'pointer'}}/>
-                        <label style={{flex: 1, fontSize: '18px', fontWeight: '700', color: '#1f2937'}}>
-                          Complete one lesson
-                        </label>
-                        <span style={{fontSize: '16px', fontWeight: '900', color: '#10b981', background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)', padding: '6px 16px', borderRadius: '20px', border: '3px solid #10b981'}}>
-                          +20 XP
-                        </span>
-                      </div>
-
-                      <div className="challenge-item">
-                        <input type="checkbox" style={{width: '24px', height: '24px', cursor: 'pointer'}}/>
-                        <label style={{flex: 1, fontSize: '18px', fontWeight: '700', color: '#1f2937'}}>
-                          Score 80% on a quiz
-                        </label>
-                        <span style={{fontSize: '16px', fontWeight: '900', color: '#f59e0b', background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '6px 16px', borderRadius: '20px', border: '3px solid #f59e0b'}}>
-                          +30 XP
-                        </span>
-                      </div>
-
-                      <div className="challenge-item">
-                        <input type="checkbox" style={{width: '24px', height: '24px', cursor: 'pointer'}}/>
-                        <label style={{flex: 1, fontSize: '18px', fontWeight: '700', color: '#1f2937'}}>
-                          Play one mini-game
-                        </label>
-                        <span style={{fontSize: '16px', fontWeight: '900', color: '#8b5cf6', background: 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)', padding: '6px 16px', borderRadius: '20px', border: '3px solid #8b5cf6'}}>
-                          +10 XP
-                        </span>
-                      </div>
+                      {today?.challenges?.length ? (
+                        <>
+                          <p style={{fontSize: '16px', fontWeight: '700', color: '#6b7280', margin: '0 0 10px'}}>
+                            {today.done} of {today.total} done {today.done === today.total ? '- brilliant! 🎉' : ''}
+                          </p>
+                          {today.challenges.map((challenge) => (
+                            <div className="challenge-item" key={challenge.id}>
+                              <span aria-hidden="true" style={{fontSize: '24px'}}>{challenge.done ? '✅' : '⬜'}</span>
+                              <span style={{flex: 1, fontSize: '18px', fontWeight: '700', color: challenge.done ? '#166534' : '#1f2937'}}>
+                                {challenge.label}
+                              </span>
+                              {challenge.done ? (
+                                <span style={{fontSize: '16px', fontWeight: '900', color: '#10b981'}}>Done!</span>
+                              ) : (
+                                <Link to={challenge.link}>
+                                  <span style={{fontSize: '16px', fontWeight: '900', color: '#8b5cf6', background: 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)', padding: '6px 16px', borderRadius: '20px', border: '3px solid #8b5cf6'}}>
+                                    Go →
+                                  </span>
+                                </Link>
+                              )}
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <p style={{textAlign: 'center', color: '#666', padding: '20px'}}>
+                          Finish a lesson or a practice round to start today's challenges! ⭐
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -279,9 +286,9 @@ const DashboardPage = () => {
                         <FiAward size={24} /> MY ACHIEVEMENTS
                       </button>
                     </Link>
-                    <Link to="/app/ml-insights" style={{flex: 1, minWidth: '200px'}}>
+                    <Link to="/app/practice" style={{flex: 1, minWidth: '200px'}}>
                       <button className="btn-primary" style={{width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)'}}>
-                        🧠 ML INSIGHTS
+                        🎯 PRACTICE
                       </button>
                     </Link>
                     <Link to="/app/progress-summary" style={{flex: 1, minWidth: '200px'}}>

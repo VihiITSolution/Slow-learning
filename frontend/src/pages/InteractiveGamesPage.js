@@ -7,7 +7,8 @@ import '../styles/InteractiveGames.css';
 
 const InteractiveGamesPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const isStudent = user?.role === 'student';
   // Logged-in students go back to their games page, staff to their dashboard,
   // children playing without an account to the start page
   const homePath = user?.role === 'student' ? '/student-dashboard' : user ? homeFor(user) : '/learning-helper';
@@ -48,6 +49,16 @@ const InteractiveGamesPage = () => {
   const [strokeCount, setStrokeCount] = useState(0);
   const [errors, setErrors] = useState(0);
   const [isAnswered, setIsAnswered] = useState(false);
+  // Latest totals for saving the run (the timers below would see old state)
+  const completedRef = useRef(0);
+  const errorsRef = useRef(0);       // wrong tries across the whole run
+  const lastErrorsRef = useRef(0);   // `errors` restarts at 0 for each game
+  const [runSaved, setRunSaved] = useState(null);
+
+  useEffect(() => {
+    if (errors > lastErrorsRef.current) errorsRef.current += errors - lastErrorsRef.current;
+    lastErrorsRef.current = errors;
+  }, [errors]);
 
   useEffect(() => {
     // Load existing session or use stored session ID
@@ -66,6 +77,11 @@ const InteractiveGamesPage = () => {
     setScore(0);
     setStarsEarned(0);
     setGamesCompleted(0);
+    setErrors(0);
+    completedRef.current = 0;
+    errorsRef.current = 0;
+    lastErrorsRef.current = 0;
+    setRunSaved(null);
     setStartTime(Date.now());
   };
 
@@ -336,6 +352,7 @@ const InteractiveGamesPage = () => {
     
     setStarsEarned(newStars);
     setGamesCompleted(newCompleted);
+    completedRef.current = newCompleted;
     
     // Update session in backend
     if (sessionId) {
@@ -347,7 +364,7 @@ const InteractiveGamesPage = () => {
           [gameScoreKey]: 1,
           games_completed: newCompleted,
           total_stars: newStars,
-          total_errors: errors,
+          total_errors: errorsRef.current,
           total_time: totalTime
         });
       } catch (error) {
@@ -384,6 +401,24 @@ const InteractiveGamesPage = () => {
         });
       } catch (error) {
         console.error('Error completing session:', error);
+      }
+    }
+
+    // Logged-in students: save the run to their account so it counts in
+    // their progress and the engagement model
+    if (isStudent) {
+      try {
+        const res = await api.post('/activities/game', {
+          games_completed: completedRef.current,
+          games_total: gameSequence.length,
+          errors: errorsRef.current,
+          time_spent: startTime ? Math.floor((Date.now() - startTime) / 1000) : 0,
+          session_id: sessionId,
+        });
+        setRunSaved({ xp: res.data.xp_earned || 0 });
+        refreshUser?.();
+      } catch (error) {
+        console.error('Error saving game run:', error);
       }
     }
     
@@ -452,6 +487,11 @@ const InteractiveGamesPage = () => {
           <div className="result-message">
             <h2>You're a Learning Superstar! 🌟</h2>
             <p>You tried your best and that's what matters!</p>
+            {runSaved && (
+              <p style={{ fontWeight: 700 }}>
+                {runSaved.xp > 0 ? `⭐ +${runSaved.xp} XP - ` : ''}✅ Saved to your progress
+              </p>
+            )}
           </div>
           <div className="result-actions">
             <button onClick={() => setCurrentGameIndex(-1)} className="play-again-btn">

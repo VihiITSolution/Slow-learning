@@ -46,6 +46,8 @@ function LessonDetailPage() {
   // timer (seconds elapsed since start)
   const timerRef = useRef(null);
   const secondsRef = useRef(0);
+  // first answer to each activity step (step index -> option index)
+  const stepAnswersRef = useRef({});
 
   const startTimer = useCallback(() => {
     secondsRef.current = 0;
@@ -93,6 +95,7 @@ function LessonDetailPage() {
       await api.post(`/lessons/${id}/start`);
     } catch (_) {}
     startTimer();
+    stepAnswersRef.current = {};
     setStepIndex(0);
     setSelectedOption(null);
     setAnswered(false);
@@ -101,8 +104,26 @@ function LessonDetailPage() {
 
   const handleOptionSelect = (optionIndex) => {
     if (answered) return;
+    if (stepAnswersRef.current[stepIndex] === undefined) {
+      stepAnswersRef.current[stepIndex] = optionIndex;
+    }
     setSelectedOption(optionIndex);
     setAnswered(true);
+  };
+
+  // Save how the student did on the lesson's practice questions (feeds the
+  // engagement model's practice accuracy). Saving must never block the lesson.
+  const saveLessonActivities = (steps) => {
+    const activitySteps = steps
+      .map((step, index) => ({ step, index }))
+      .filter(({ step }) => step.type === 'activity' && step.correct !== undefined);
+    if (activitySteps.length === 0) return;
+    const answers = activitySteps.map(({ index }) => stepAnswersRef.current[index] ?? -1);
+    api.post('/activities/lesson-steps', {
+      lesson_id: Number(id),
+      answers,
+      time_spent: secondsRef.current,
+    }).catch(() => {});
   };
 
   const handleNextStep = () => {
@@ -113,7 +134,8 @@ function LessonDetailPage() {
       setSelectedOption(null);
       setAnswered(false);
     } else {
-      // All steps done — move to quiz
+      // All steps done — save the activity answers, then move to quiz
+      saveLessonActivities(steps);
       setPhase('quiz');
     }
   };

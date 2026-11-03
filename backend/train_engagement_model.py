@@ -94,7 +94,7 @@ def main():
         if data is None or len(data) < 20 or data['engaged'].nunique() < 2:
             print('Not enough real student data to train (need at least 20 students with both labels).')
             return 1
-        source = f'{len(data)} database students labelled by rule (3 of 5 activity criteria)'
+        source = f'{len(data)} database students labelled by rule (4 of 7 activity criteria)'
     else:
         data = generate_synthetic_training_data(args.samples, random_state=args.seed)
         source = f'synthetic generator, {len(data)} samples, seed {args.seed}'

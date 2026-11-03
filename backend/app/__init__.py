@@ -53,7 +53,7 @@ def create_app(config_name='development'):
     os.makedirs(app.config['ASSIGNMENT_FOLDER'], exist_ok=True)
     
     # Register blueprints
-    from app.routes import auth, lessons, gamification, analytics, recommendations, learning_assessment, uploads, support_plans
+    from app.routes import auth, lessons, gamification, analytics, recommendations, learning_assessment, uploads, support_plans, activities
     from app.routes.ml_analytics import ml_analytics_bp
     from app.routes.admin import bp as admin_bp
     
@@ -67,6 +67,7 @@ def create_app(config_name='development'):
     app.register_blueprint(ml_analytics_bp)  # Already has url_prefix in blueprint
     app.register_blueprint(admin_bp)  # /api/admin (admin only)
     app.register_blueprint(support_plans.bp, url_prefix='/api/support-plans')
+    app.register_blueprint(activities.bp, url_prefix='/api/activities')
     
     # Create database tables and seed initial data
     with app.app_context():

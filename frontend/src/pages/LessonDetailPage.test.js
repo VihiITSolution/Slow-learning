@@ -95,6 +95,37 @@ describe('LessonDetailPage quiz', () => {
     expect(mockRefreshUser).toHaveBeenCalled();
   });
 
+  test('saves the first answer to each activity step in the lesson', async () => {
+    const withActivities = {
+      ...lesson,
+      content: JSON.stringify({
+        type: 'interactive',
+        steps: [
+          { type: 'activity', title: 'Try it', question: '1 + 1?', options: ['1', '2'], correct: 1 },
+          { type: 'learn', title: 'Well done', content: '<p>Good</p>' },
+          { type: 'activity', title: 'Again', question: '2 + 1?', options: ['3', '4'], correct: 0 },
+        ],
+      }),
+    };
+    api.get.mockImplementation((url) => {
+      if (url === '/lessons/1') return Promise.resolve({ data: withActivities });
+      if (url === '/lessons/1/quiz') return Promise.resolve({ data: quiz });
+      return Promise.resolve({ data: {} });
+    });
+    api.post.mockResolvedValue({ data: {} });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /start learning/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'A. 1' }));   // wrong first
+    await userEvent.click(screen.getByRole('button', { name: /next/i }));
+    await userEvent.click(screen.getByRole('button', { name: /next/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'A. 3' }));          // right
+    await userEvent.click(screen.getByRole('button', { name: /go to quiz/i }));
+
+    expect(api.post).toHaveBeenCalledWith('/activities/lesson-steps', expect.objectContaining({ lesson_id: 1, answers: [0, 0] }));
+    expect(await screen.findByText('1. What comes after 1?')).toBeInTheDocument();
+  });
+
   test('a lesson without a quiz can still be completed', async () => {
     mockLesson({ withQuiz: false });
     api.post.mockImplementation((url) => {

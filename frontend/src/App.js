@@ -13,6 +13,7 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import LessonsPage from './pages/LessonsPage';
 import LessonDetailPage from './pages/LessonDetailPage';
+import PracticePage from './pages/PracticePage';
 import ProfilePage from './pages/ProfilePage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import AchievementsPage from './pages/AchievementsPage';
@@ -113,6 +114,7 @@ function App() {
               <Route path="lessons" element={<LessonsPage />} />
               <Route path="lessons/:id" element={<LessonDetailPage />} />
               <Route path="lessons/:id/quiz" element={<LessonQuizRedirect />} />
+              <Route path="practice" element={<PracticePage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="achievements" element={<AchievementsPage />} />

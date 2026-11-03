@@ -8,7 +8,8 @@ from app import db
 from app.models.user import User
 from app.models.progress import Progress
 from app.models.quiz import QuizAttempt
-from app.ml_models.engagement_predictor import EngagementPredictor, rule_based_engagement_label
+from app.ml_models.engagement_predictor import EngagementPredictor, FEATURE_NAMES, rule_based_engagement_label
+from app.services.activity_service import activity_features, activity_summary
 from app.services.notification_service import NotificationService
 
 
@@ -49,8 +50,10 @@ class EngagementService:
             func.date(Progress.last_accessed) == today
         ).scalar() or 0
         
-        # Convert seconds to minutes
-        time_spent_today = time_spent_today / 60
+        # Practice rounds and learning games played today count as learning
+        # time too (seconds), then convert to minutes
+        activity = activity_features(user_id)
+        time_spent_today = (time_spent_today + activity['seconds_today']) / 60
         
         # Average quiz score. None when the student has not taken a quiz yet:
         # the predictor treats it as missing (training mean) instead of 0%.
@@ -101,6 +104,9 @@ class EngagementService:
             'login_streak': int(login_streak),
             'lessons_completed_week': int(lessons_completed_week),
             'days_inactive': int(days_inactive),
+            'practice_accuracy': activity['practice_accuracy'],
+            'activities_week': activity['activities_week'],
+            'activities_total': activity['scored_total'],
             'username': user.username,
             'email': user.email,
             'total_xp': user.total_xp,
@@ -132,13 +138,8 @@ class EngagementService:
                 'level': user_features['level'],
                 'total_xp': user_features['total_xp']
             },
-            'features': {
-                'time_spent_today': user_features['time_spent_today'],
-                'avg_quiz_score': user_features['avg_quiz_score'],
-                'login_streak': user_features['login_streak'],
-                'lessons_completed_week': user_features['lessons_completed_week'],
-                'days_inactive': user_features['days_inactive']
-            },
+            'features': {name: user_features[name] for name in FEATURE_NAMES},
+            'activity': activity_summary(user_id),
             'timestamp': datetime.utcnow().isoformat()
         }
         
@@ -146,6 +147,7 @@ class EngagementService:
         is_new = (
             user_features.get('lessons_completed_total', 0) == 0
             and user_features.get('quiz_attempts', 0) == 0
+            and user_features.get('activities_total', 0) == 0
             and age is not None and age < NEW_STUDENT_DAYS
         )
         result['insufficient_data'] = is_new
@@ -158,8 +160,8 @@ class EngagementService:
             result['risk_level'] = 'new'
             result['recommendation'] = [
                 'New student - not enough activity yet to judge engagement',
-                'Help them start their first lesson',
-                'Check again after a few lessons',
+                'Help them start their first lesson or a practice round',
+                'Check again after a few lessons or practice rounds',
             ]
         
         return result
@@ -370,14 +372,7 @@ class EngagementService:
             # teacher judgement - see rule_based_engagement_label)
             engaged = rule_based_engagement_label(features)
 
-            rows.append({
-                'time_spent_today': features['time_spent_today'],
-                'avg_quiz_score': features['avg_quiz_score'],
-                'login_streak': features['login_streak'],
-                'lessons_completed_week': features['lessons_completed_week'],
-                'days_inactive': features['days_inactive'],
-                'engaged': engaged
-            })
+            rows.append({**{name: features[name] for name in FEATURE_NAMES}, 'engaged': engaged})
 
         if len(rows) < 1:
             return None

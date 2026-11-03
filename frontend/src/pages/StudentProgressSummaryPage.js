@@ -94,7 +94,7 @@ export default function StudentProgressSummaryPage() {
             <span style={{ padding: '6px 18px', borderRadius: 20, background: RISK_BG[riskLevel], color: RISK_COLOR[riskLevel], fontWeight: 800, fontSize: 15, border: `2px solid ${RISK_COLOR[riskLevel]}` }}>
               {isNew ? '🌱 Just getting started' : engaged ? '✅ Engaged Learner' : '⚠️ Needs Attention'}
             </span>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{isNew ? 'Complete a lesson so we can track your progress' : `${RISK_LABEL[riskLevel]} · ${(confidence * 100).toFixed(0)}% confidence`}</div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{isNew ? 'Do a lesson or a practice round so we can track your progress' : `${RISK_LABEL[riskLevel]} · ${(confidence * 100).toFixed(0)}% confidence`}</div>
           </div>
         </div>
       </div>
@@ -106,6 +106,8 @@ export default function StudentProgressSummaryPage() {
           { icon: '🎯', label: 'Avg Quiz Score', value: typeof features.avg_quiz_score === 'number' ? `${features.avg_quiz_score.toFixed(0)}%` : 'No quiz yet', color: '#0284c7', max: 100, raw: features.avg_quiz_score || 0 },
           { icon: '🔥', label: 'Login Streak', value: `${features.login_streak || 0} ${(features.login_streak || 0) === 1 ? 'day' : 'days'}`, color: '#f59e0b', max: 30, raw: features.login_streak || 0 },
           { icon: '📚', label: 'Lessons This Week', value: features.lessons_completed_week || 0, color: '#16a34a', max: 7, raw: features.lessons_completed_week || 0 },
+          { icon: '✏️', label: 'Practice Accuracy', value: typeof features.practice_accuracy === 'number' ? `${features.practice_accuracy.toFixed(0)}%` : 'No practice yet', color: '#db2777', max: 100, raw: features.practice_accuracy || 0 },
+          { icon: '🧩', label: 'Practice & Games This Week', value: features.activities_week || 0, color: '#7c3aed', max: 7, raw: Math.min(features.activities_week || 0, 7) },
           { icon: '😴', label: 'Days Inactive', value: `${features.days_inactive || 0} ${(features.days_inactive || 0) === 1 ? 'day' : 'days'}`, color: features.days_inactive > 3 ? '#dc2626' : '#16a34a', max: 7, raw: Math.min(features.days_inactive || 0, 7), invert: true },
         ].map(stat => (
           <div key={stat.label} style={{ background: '#fff', borderRadius: 12, padding: '18px 16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)', border: '1px solid #f1f5f9' }}>

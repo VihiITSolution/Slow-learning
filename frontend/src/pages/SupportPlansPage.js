@@ -60,6 +60,7 @@ const formatDate = (iso) => {
 
 const labelFor = (value, options) => options.find(([key]) => key === value)?.[1] || value;
 const signed = (value) => `${value > 0 ? '+' : ''}${value || 0}`;
+const percent = (value) => (typeof value === 'number' ? `${Math.round(value)}%` : 'none yet');
 const engagementLabel = (engaged) => (engaged === true ? 'Engaged' : engaged === false ? 'At risk' : 'Unknown');
 
 function MetricComparison({ comparison }) {
@@ -85,6 +86,15 @@ function MetricComparison({ comparison }) {
             </div>
           );
         })}
+        {comparison.practice_accuracy && (
+          <div className="comparison-item" key="practice_accuracy">
+            <span>🎯 Practice accuracy</span>
+            <strong>{percent(comparison.practice_accuracy.baseline)} → {percent(comparison.practice_accuracy.review)}</strong>
+            {comparison.practice_accuracy.change === null || comparison.practice_accuracy.change === undefined
+              ? <small>—</small>
+              : <small className={comparison.practice_accuracy.change >= 0 ? 'positive' : 'negative'}>{signed(comparison.practice_accuracy.change)} pts</small>}
+          </div>
+        )}
       </div>
       <div className="comparison-statuses">
         <span>Engagement: <strong>{engagementLabel(comparison.engagement?.baseline)} → {engagementLabel(comparison.engagement?.review)}</strong></span>

@@ -21,7 +21,7 @@ describe('role-based navigation', () => {
 
   test('students see learning pages only (no ML Insights) and their XP', () => {
     renderAt('/app/dashboard', { id: 1, username: 'amaya', role: 'student', level: 2, total_xp: 300 });
-    expect(navLabels()).toEqual(['Dashboard', 'Lessons', 'Learning Games', 'Achievements', 'Gamification', 'Leaderboard', 'My Progress', 'Profile']);
+    expect(navLabels()).toEqual(['Dashboard', 'Lessons', 'Practice', 'Learning Games', 'Achievements', 'Gamification', 'Leaderboard', 'My Progress', 'Profile']);
     expect(screen.getByText('Level 2 • 300 XP')).toBeInTheDocument();
   });
 

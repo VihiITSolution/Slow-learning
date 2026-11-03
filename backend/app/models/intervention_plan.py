@@ -67,6 +67,15 @@ class InterventionPlan(db.Model):
             }
             for field in numeric_fields
         }
+        # Practice accuracy (% right first time) - None when the student had
+        # not practised yet at that point
+        before = (baseline.get('engagement_features') or {}).get('practice_accuracy')
+        after = (review.get('engagement_features') or {}).get('practice_accuracy')
+        comparison['practice_accuracy'] = {
+            'baseline': before,
+            'review': after,
+            'change': round(after - before, 1) if before is not None and after is not None else None,
+        }
         comparison['engagement'] = {
             'baseline': baseline.get('engaged'),
             'review': review.get('engaged'),

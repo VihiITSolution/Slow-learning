@@ -438,7 +438,7 @@ def train_model():
             # Try to extract real data from the database
             real_data = engagement_service.extract_training_data_from_db()
             if real_data is not None:
-                labels_note = ('real students are labelled by a rule (3 of 5 activity criteria), '
+                labels_note = ('real students are labelled by a rule (4 of 7 activity criteria), '
                                'not by teachers; synthetic rows come from the data generator')
             if real_data is not None and len(real_data) >= 10:
                 # Supplement with synthetic data to ensure enough samples for training
@@ -494,7 +494,9 @@ def test_model():
             "avg_quiz_score": 75,
             "login_streak": 5,
             "lessons_completed_week": 3,
-            "days_inactive": 0
+            "days_inactive": 0,
+            "practice_accuracy": 70,
+            "activities_week": 4
         }
     
     Returns:
