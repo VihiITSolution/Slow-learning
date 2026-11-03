@@ -2,7 +2,7 @@
 Authentication Routes
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from app import db
 from app.models.user import User
 from datetime import datetime, timedelta
@@ -146,14 +146,17 @@ def login():
         schema:
           $ref: '#/definitions/Error'
     """
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     
     # Validate required fields
     if not data.get('username') or not data.get('password'):
         return jsonify({'error': 'Missing username or password'}), 400
     
-    # Find user
-    user = User.query.filter_by(username=data['username']).first()
+    # Find user by username, or by email (the admin login asks for an email)
+    identifier = data['username'].strip()
+    user = User.query.filter_by(username=identifier).first()
+    if not user and '@' in identifier:
+        user = User.query.filter(db.func.lower(User.email) == identifier.lower()).first()
     
     # Verify credentials with constant-time comparison (prevents timing attacks)
     if not user or not user.check_password(data['password']):
@@ -234,19 +237,15 @@ def get_profile():
     return jsonify(user.to_dict()), 200
 
 @bp.route('/students', methods=['GET'])
+@jwt_required()
 def get_students():
     """
     Get all students (teacher/admin only)
     """
-    # Try to verify JWT — if missing/invalid, return empty list (page is accessible publicly)
-    try:
-        verify_jwt_in_request()
-        user_id = int(get_jwt_identity())
-        current_user = User.query.get(user_id)
-        if not current_user or current_user.role not in ['teacher', 'admin']:
-            return jsonify({'students': [], 'total': 0}), 200
-    except Exception:
-        return jsonify({'students': [], 'total': 0}), 200
+    # Only the teacher/admin pages use this list (they are role-protected in the UI)
+    current_user = User.query.get(int(get_jwt_identity()))
+    if not current_user or current_user.role not in ['teacher', 'admin']:
+        return jsonify({'error': 'Access denied. Teacher or admin role required'}), 403
 
     students = User.query.filter_by(role='student').all()
 

@@ -7,6 +7,7 @@ from app import db
 from app.models.user import User
 from app.models.progress import Progress
 from app.models.quiz import QuizAttempt
+from app.models.lesson import Lesson
 from app.ml_models.engagement_predictor import FEATURE_NAMES
 from datetime import datetime, timedelta
 from sqlalchemy import func
@@ -41,6 +42,9 @@ def get_dashboard():
         status='completed'
     ).count()
     
+    total_active_lessons = Lesson.query.filter_by(is_active=True).count()
+    completion_percentage = round(completed_lessons / total_active_lessons * 100) if total_active_lessons else 0
+    
     # Get quiz statistics
     total_quizzes = QuizAttempt.query.filter_by(user_id=user_id).count()
     avg_quiz_score = db.session.query(func.avg(QuizAttempt.score)).filter_by(
@@ -59,6 +63,8 @@ def get_dashboard():
             'current_streak': user.current_streak,
             'longest_streak': user.longest_streak,
             'lessons_completed': completed_lessons,
+            'total_lessons': total_active_lessons,
+            'completion_percentage': completion_percentage,
             'total_lessons_attempted': total_lessons,
             'quizzes_taken': total_quizzes,
             'avg_quiz_score': round(avg_quiz_score, 2)

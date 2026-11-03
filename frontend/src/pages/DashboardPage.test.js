@@ -61,9 +61,9 @@ describe('DashboardPage Component', () => {
   });
 
   test('displays user stats correctly', async () => {
+    // Shape returned by GET /api/analytics/dashboard
     const mockAnalytics = {
-      completion_percentage: 65,
-      xp_gained_today: 150,
+      user_stats: { completion_percentage: 65, lessons_completed: 13, total_lessons: 20 },
     };
 
     api.get.mockImplementation((url) => {
@@ -83,15 +83,10 @@ describe('DashboardPage Component', () => {
     });
   });
 
-  test('displays XP gained today message', async () => {
-    const mockAnalytics = {
-      completion_percentage: 50,
-      xp_gained_today: 200,
-    };
-
+  test('shows how many lessons are completed', async () => {
     api.get.mockImplementation((url) => {
       if (url === '/analytics/dashboard') {
-        return Promise.resolve({ data: mockAnalytics });
+        return Promise.resolve({ data: { user_stats: { completion_percentage: 50, lessons_completed: 3, total_lessons: 6 } } });
       }
       return Promise.resolve({ data: { recommendations: [], leaderboard: [] } });
     });
@@ -99,15 +94,31 @@ describe('DashboardPage Component', () => {
     renderDashboardPage();
     
     await waitFor(() => {
-      expect(screen.getByText(/\+200 XP today/i)).toBeInTheDocument();
+      expect(screen.getByText(/3 of 6 lessons/i)).toBeInTheDocument();
     });
+  });
+
+  test('recommendation links use the lesson id from the API', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/recommendations/personalized') {
+        return Promise.resolve({ data: { recommendations: [{ lesson: { id: 7, title: 'Addition Up to 10', category: 'math' }, score: 0.8 }] } });
+      }
+      return Promise.resolve({ data: { leaderboard: [] } });
+    });
+
+    renderDashboardPage();
+
+    await waitFor(() => expect(screen.getByText('Addition Up to 10')).toBeInTheDocument());
+    expect(document.querySelector('a[href="/app/lessons/7"]')).not.toBeNull();
+    expect(document.querySelector('a[href="/app/lessons/undefined"]')).toBeNull();
   });
 
   test('displays personalized recommendations', async () => {
     const mockRecommendations = {
+      // Shape returned by GET /api/recommendations/personalized
       recommendations: [
-        { lesson_id: 1, title: 'Introduction to Python', reason: 'Based on your progress' },
-        { lesson_id: 2, title: 'JavaScript Basics', reason: 'Popular choice' },
+        { lesson: { id: 1, title: 'Introduction to Python' }, score: 0.9, reason: 'Based on your progress' },
+        { lesson: { id: 2, title: 'JavaScript Basics' }, score: 0.7, reason: 'Popular choice' },
       ]
     };
 

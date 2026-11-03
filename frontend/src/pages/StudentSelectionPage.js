@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/StudentSelection.css';
 
@@ -18,14 +19,8 @@ const StudentSelectionPage = () => {
 
   const fetchStudents = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/auth/students', {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
-      const data = await response.json();
-      if (data.students) {
-        setStudents(data.students);
-      }
+      const response = await api.get('/auth/students');
+      setStudents(response.data?.students || []);
     } catch (error) {
       console.error('Error fetching students:', error);
     } finally {

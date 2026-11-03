@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import '../styles/TeacherDashboard.css';
 
@@ -15,10 +15,18 @@ const TeacherDashboardPage = () => {
     activeGames: 0
   });
   const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const studentListRef = useRef(null);
+  const focusStudents = searchParams.get('section') === 'students';
 
   useEffect(() => {
     fetchTeacherData();
   }, []);
+
+  // "Student Results" in the sidebar opens the dashboard at the student list
+  useEffect(() => {
+    if (focusStudents && !loading) studentListRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [focusStudents, loading]);
 
   const fetchTeacherData = async () => {
     try {
@@ -123,7 +131,8 @@ const TeacherDashboardPage = () => {
       </div>
 
       {/* Student List */}
-      <div className="section-card">
+      <div className="section-card" id="student-list" ref={studentListRef}
+        style={focusStudents ? { boxShadow: '0 0 0 3px #6366f1' } : undefined}>
         <h2>📋 Student List</h2>
         {students.length === 0 ? (
           <p className="no-data">No students registered yet.</p>

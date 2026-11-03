@@ -55,6 +55,7 @@ def create_app(config_name='development'):
     # Register blueprints
     from app.routes import auth, lessons, gamification, analytics, recommendations, learning_assessment, uploads, support_plans
     from app.routes.ml_analytics import ml_analytics_bp
+    from app.routes.admin import bp as admin_bp
     
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(lessons.bp, url_prefix='/api/lessons')
@@ -64,6 +65,7 @@ def create_app(config_name='development'):
     app.register_blueprint(learning_assessment.bp, url_prefix='/api/assessment')
     app.register_blueprint(uploads.bp)  # Already has url_prefix in blueprint
     app.register_blueprint(ml_analytics_bp)  # Already has url_prefix in blueprint
+    app.register_blueprint(admin_bp)  # /api/admin (admin only)
     app.register_blueprint(support_plans.bp, url_prefix='/api/support-plans')
     
     # Create database tables and seed initial data

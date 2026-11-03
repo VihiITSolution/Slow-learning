@@ -1,21 +1,32 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { homeFor } from '../components/common/RoleRoute';
 import '../styles/AssessmentHome.css';
 
 const AssessmentHomePage = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
 
   return (
     <div className="assessment-home-page">
       <div className="welcome-container">
         <div className="welcome-header">
           <div className="auth-buttons">
-            <button onClick={() => navigate('/login')} className="auth-btn login-btn">
-              🔐 Login to Main App
-            </button>
-            <button onClick={() => navigate('/register')} className="auth-btn register-btn">
-              ✨ Sign Up
-            </button>
+            {isAuthenticated ? (
+              <button onClick={() => navigate(homeFor(user))} className="auth-btn login-btn">
+                🏠 Go to my dashboard
+              </button>
+            ) : (
+              <>
+                <button onClick={() => navigate('/login')} className="auth-btn login-btn">
+                  🔐 Login to Main App
+                </button>
+                <button onClick={() => navigate('/register')} className="auth-btn register-btn">
+                  ✨ Sign Up
+                </button>
+              </>
+            )}
           </div>
           <h1 className="animated-title">🌟 Welcome to Learning Helper! 🌟</h1>
           <p className="subtitle">A tool to help every student learn in their own special way</p>

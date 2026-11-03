@@ -64,8 +64,22 @@ def get_lessons():
     
     lessons = query.order_by(Lesson.order_index).all()
     
+    # Include the current student's own progress so the lesson list can show
+    # what is completed / in progress
+    user_id = int(get_jwt_identity())
+    progress_by_lesson = {
+        p.lesson_id: p for p in Progress.query.filter_by(user_id=user_id).all()
+    }
+    
+    def with_progress(lesson):
+        data = lesson.to_dict()
+        progress = progress_by_lesson.get(lesson.id)
+        data['status'] = progress.status if progress else None
+        data['completion_percentage'] = progress.completion_percentage if progress else 0
+        return data
+    
     return jsonify({
-        'lessons': [lesson.to_dict() for lesson in lessons]
+        'lessons': [with_progress(lesson) for lesson in lessons]
     }), 200
 
 

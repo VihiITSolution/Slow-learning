@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { homeFor } from '../components/common/RoleRoute';
 import api from '../services/api';
 import '../styles/InteractiveGames.css';
 
 const InteractiveGamesPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // Logged-in students go back to their games page, staff to their dashboard,
+  // children playing without an account to the start page
+  const homePath = user?.role === 'student' ? '/student-dashboard' : user ? homeFor(user) : '/learning-helper';
   const canvasRef = useRef(null);
   
   // Game sequence
@@ -395,7 +401,7 @@ const InteractiveGamesPage = () => {
   if (currentGameIndex === -1) {
     return (
       <div className="interactive-games-page">
-        <button onClick={() => navigate('/learning-helper')} className="back-to-home-btn">
+        <button onClick={() => navigate(homePath)} className="back-to-home-btn">
           ← Back to Home
         </button>
         <div className="games-header">
@@ -426,7 +432,7 @@ const InteractiveGamesPage = () => {
   if (currentGameIndex === -2) {
     return (
       <div className="interactive-games-page">
-        <button onClick={() => navigate('/learning-helper')} className="back-to-home-btn">
+        <button onClick={() => navigate(homePath)} className="back-to-home-btn">
           ← Back to Home
         </button>
         <div className="final-results">
@@ -454,7 +460,7 @@ const InteractiveGamesPage = () => {
             <button onClick={() => navigate('/student-dashboard')} className="home-btn">
               📊 View Dashboard
             </button>
-            <button onClick={() => navigate('/learning-helper')} className="home-btn">
+            <button onClick={() => navigate(homePath)} className="home-btn">
               🏠 Back to Home
             </button>
           </div>
@@ -468,7 +474,7 @@ const InteractiveGamesPage = () => {
 
   return (
     <div className="interactive-games-page game-active">
-      <button onClick={() => navigate('/learning-helper')} className="back-to-home-btn">
+      <button onClick={() => navigate(homePath)} className="back-to-home-btn">
         ← Back to Home
       </button>
       

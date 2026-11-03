@@ -38,6 +38,10 @@ const LessonsPage = () => {
       </div>
     );
   }
+  // Each lesson ends with its own quiz, so the next step is the first
+  // lesson the student has not finished yet
+  const nextLesson = lessons.find(l => l.status === 'in_progress') || lessons.find(l => l.status !== 'completed');
+
   return (
     <div className="lessons-page">
       <div className="page-header">
@@ -127,11 +131,15 @@ const LessonsPage = () => {
               🏠 BACK TO DASHBOARD
             </button>
           </Link>
-          <Link to="/app/lessons/1/quiz">
-            <button className="btn-primary">
-              🎯 TAKE A QUIZ
-            </button>
-          </Link>
+          {nextLesson ? (
+            <Link to={`/app/lessons/${nextLesson.id}`}>
+              <button className="btn-primary">
+                {nextLesson.status === 'in_progress' ? '🚀 CONTINUE' : '▶ NEXT LESSON'}: {nextLesson.title}
+              </button>
+            </Link>
+          ) : lessons.length > 0 ? (
+            <button className="btn-primary" disabled>🎉 ALL LESSONS COMPLETED</button>
+          ) : null}
         </div>
       </div>
     </div>

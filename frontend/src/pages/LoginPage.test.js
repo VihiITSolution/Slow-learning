@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import LoginPage from './LoginPage';
 import { AuthProvider } from '../contexts/AuthContext';
@@ -8,9 +8,10 @@ import { toast } from 'react-toastify';
 
 // Mock dependencies
 jest.mock('react-toastify');
+const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useNavigate: () => jest.fn(),
+  useNavigate: () => mockNavigate,
 }));
 
 // Mock AuthContext
@@ -55,12 +56,10 @@ describe('LoginPage Component', () => {
     expect(signUpLink.closest('a')).toHaveAttribute('href', '/register');
   });
 
-  test('displays forgot password link', () => {
+  test('explains how to reset a forgotten password (no dead link)', () => {
     renderLoginPage();
-    
-    const forgotLink = screen.getByText(/forgot password/i);
-    expect(forgotLink).toBeInTheDocument();
-    expect(forgotLink.closest('a')).toHaveAttribute('href', '/forgot-password');
+    expect(screen.getByText(/ask your teacher or an admin/i)).toBeInTheDocument();
+    expect(screen.queryByText(/google/i)).not.toBeInTheDocument();
   });
 
   test('toggles password visibility', () => {
@@ -158,5 +157,37 @@ describe('LoginPage Component', () => {
     
     expect(usernameInput).toBeRequired();
     expect(passwordInput).toBeRequired();
+  });
+
+  const loginAs = async (role, entry = '/login') => {
+    mockLogin.mockResolvedValue({ user: { id: 1, username: 'someone', role } });
+    render(
+      <MemoryRouter initialEntries={[entry]}>
+        <LoginPage />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByPlaceholderText(/username/i), { target: { value: 'someone' } });
+    fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: /login/i }));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    return mockNavigate.mock.calls[0][0];
+  };
+
+  test.each([
+    ['student', '/app/dashboard'],
+    ['teacher', '/teacher/dashboard'],
+    ['admin', '/admin/dashboard'],
+  ])('a %s lands on their own home', async (role, home) => {
+    expect(await loginAs(role)).toBe(home);
+  });
+
+  test('returns to the page that asked for a login when the role allows it', async () => {
+    const entry = { pathname: '/login', state: { from: { pathname: '/teacher/support-plans', search: '?studentId=2' } } };
+    expect(await loginAs('teacher', entry)).toBe('/teacher/support-plans?studentId=2');
+  });
+
+  test('ignores a "go back" page the role cannot open', async () => {
+    const entry = { pathname: '/login', state: { from: { pathname: '/admin/users' } } };
+    expect(await loginAs('student', entry)).toBe('/app/dashboard');
   });
 });

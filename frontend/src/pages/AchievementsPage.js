@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { gamificationService } from '../services';
@@ -51,7 +52,7 @@ const AchievementsPage = () => {
           ))}
         </div>
       ) : (
-        <div className="stat-card" style={{padding: '60px', textAlign: 'center', maxWidth: '600px', margin: '0 auto'}}>
+        <div className="stat-card" style={{padding: '60px', textAlign: 'center', maxWidth: '600px', margin: '0 auto', flexDirection: 'column'}}>
           <div style={{fontSize: '80px', marginBottom: '20px'}}>🎯</div>
           <h3 style={{fontSize: '32px', fontWeight: '900', color: '#1f2937', marginBottom: '15px'}}>
             No Achievements Yet!
@@ -59,9 +60,9 @@ const AchievementsPage = () => {
           <p style={{fontSize: '20px', fontWeight: '700', color: '#666', marginBottom: '25px'}}>
             Keep learning to unlock awesome badges! 🚀
           </p>
-          <button className="btn-primary" onClick={() => window.location.href = '/lessons'}>
-            🎓 START LEARNING
-          </button>
+          <Link to="/app/lessons">
+            <button className="btn-primary">🎓 START LEARNING</button>
+          </Link>
         </div>
       )}
     </div>

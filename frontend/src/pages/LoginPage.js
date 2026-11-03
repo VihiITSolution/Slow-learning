@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
+import { canOpen, homeFor } from '../components/common/RoleRoute';
 import '../styles/Auth.css';
 
 const LoginPage = () => {
@@ -10,6 +11,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   const handleSubmit = async (e) => {
@@ -20,12 +22,13 @@ const LoginPage = () => {
       const response = await login(username, password);
       toast.success('Login successful!');
       
-      // Navigate based on user role
-      if (response.user.role === 'teacher') {
-        navigate('/teacher/dashboard');
-      } else {
-        navigate('/app/dashboard');
-      }
+      // Go back to the page that asked for a login (if this role may open
+      // it), otherwise to the user's own home
+      const from = location.state?.from;
+      const target = from && canOpen(response.user, from.pathname)
+        ? `${from.pathname}${from.search || ''}`
+        : homeFor(response.user);
+      navigate(target, { replace: true });
     } catch (error) {
       toast.error(error.message || 'Login failed');
     } finally {
@@ -75,25 +78,12 @@ const LoginPage = () => {
                 {showPassword ? '👁️' : '👁️‍🗨️'}
               </button>
             </div>
-            <Link to="/forgot-password" className="forgot-password">Forgot Password?</Link>
+            <p className="forgot-password">Forgot your password? Ask your teacher or an admin to reset it.</p>
           </div>
 
           <button type="submit" className="submit-btn" disabled={loading}>
             {loading ? '⏳ Logging in...' : '🚀 Login'}
           </button>
-
-          <div className="divider">
-            <span>or</span>
-          </div>
-
-          <div className="social-login">
-            <button type="button" className="social-btn google">
-              G Google
-            </button>
-            <button type="button" className="social-btn facebook">
-              f Facebook
-            </button>
-          </div>
 
           <div className="signup-link">
             Don't have an account? <Link to="/register">Sign Up</Link>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -21,7 +21,6 @@ import LearningAssessmentPage from './pages/LearningAssessmentPage';
 import InteractiveGamesPage from './pages/InteractiveGamesPage';
 import AssessmentHomePage from './pages/AssessmentHomePage';
 import StudentDashboard from './pages/StudentDashboard';
-import QuizPage from './pages/QuizPage';
 import GamificationPage from './pages/GamificationPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import StudentSelectionPage from './pages/StudentSelectionPage';
@@ -29,14 +28,15 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import UserManagementPage from './pages/UserManagementPage';
 import CourseManagementPage from './pages/CourseManagementPage';
-import MaterialsLibraryPage from './pages/MaterialsLibraryPage';
 import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
 import TeacherMLReportsPage from './pages/TeacherMLReportsPage';
 import StudentProgressSummaryPage from './pages/StudentProgressSummaryPage';
 import SupportPlansPage from './pages/SupportPlansPage';
 
+import NotFoundPage from './pages/NotFoundPage';
+
 // Components
-import PrivateRoute from './components/common/PrivateRoute';
+import RoleRoute, { HomeRedirect, GuestOnly } from './components/common/RoleRoute';
 import Layout from './components/common/Layout';
 
 // Styles
@@ -52,70 +52,83 @@ const queryClient = new QueryClient({
   },
 });
 
+const STAFF = ['teacher', 'admin'];
+
+// The quiz is part of each lesson page, so the old quiz URL opens the lesson
+function LessonQuizRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/app/lessons/${id}`} replace />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Router>
           <Routes>
-            {/* Public Routes - Learning Helper System */}
-            <Route path="/" element={<Navigate to="/learning-helper" replace />} />
+            {/* Start page: logged-in users go to their own home */}
+            <Route path="/" element={<HomeRedirect />} />
+
+            {/* Learning Helper - games for children work without an account */}
             <Route path="/learning-helper" element={<AssessmentHomePage />} />
-            <Route path="/student-selection" element={<StudentSelectionPage />} />
-            <Route path="/learning-assessment" element={<LearningAssessmentPage />} />
             <Route path="/student-dashboard" element={<StudentDashboard />} />
             <Route path="/interactive-games" element={<InteractiveGamesPage />} />
-            
-            {/* Authentication Routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            {/* Assessing a student is a teacher task */}
+            <Route path="/student-selection" element={<RoleRoute roles={STAFF}><StudentSelectionPage /></RoleRoute>} />
+            <Route path="/learning-assessment" element={<RoleRoute roles={STAFF}><LearningAssessmentPage /></RoleRoute>} />
 
-            {/* Teacher Routes */}
+            {/* Authentication Routes */}
+            <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
+            <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
+            <Route path="/admin/login" element={<GuestOnly><AdminLoginPage /></GuestOnly>} />
+
+            {/* Teacher Routes (admins can use them too) */}
             <Route
               path="/teacher"
               element={
-                <PrivateRoute>
+                <RoleRoute roles={STAFF}>
                   <Layout />
-                </PrivateRoute>
+                </RoleRoute>
               }
             >
               <Route index element={<Navigate to="/teacher/dashboard" replace />} />
               <Route path="dashboard" element={<TeacherDashboardPage />} />
               <Route path="ml-reports" element={<TeacherMLReportsPage />} />
               <Route path="support-plans" element={<SupportPlansPage />} />
+              <Route path="ml-insights" element={<MLInsightsPage />} />
+              <Route path="profile" element={<ProfilePage />} />
             </Route>
 
-            {/* Private Routes - Main App */}
+            {/* Student app */}
             <Route
               path="/app"
               element={
-                <PrivateRoute>
+                <RoleRoute roles={['student']}>
                   <Layout />
-                </PrivateRoute>
+                </RoleRoute>
               }
             >
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="lessons" element={<LessonsPage />} />
               <Route path="lessons/:id" element={<LessonDetailPage />} />
-              <Route path="lessons/:id/quiz" element={<QuizPage />} />
+              <Route path="lessons/:id/quiz" element={<LessonQuizRedirect />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="achievements" element={<AchievementsPage />} />
               <Route path="gamification" element={<GamificationPage />} />
-              <Route path="ml-insights" element={<MLInsightsPage />} />
-              <Route path="materials" element={<MaterialsLibraryPage />} />
               <Route path="progress-summary" element={<StudentProgressSummaryPage />} />
+              {/* ML Insights is a teacher tool now */}
+              <Route path="ml-insights" element={<Navigate to="/teacher/ml-insights" replace />} />
             </Route>
 
             {/* Admin Routes */}
-            <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route
               path="/admin"
               element={
-                <PrivateRoute>
+                <RoleRoute roles={['admin']}>
                   <Layout />
-                </PrivateRoute>
+                </RoleRoute>
               }
             >
               <Route index element={<Navigate to="/admin/dashboard" replace />} />
@@ -123,10 +136,11 @@ function App() {
               <Route path="users" element={<UserManagementPage />} />
               <Route path="courses" element={<CourseManagementPage />} />
               <Route path="analytics" element={<AdminAnalyticsPage />} />
+              <Route path="profile" element={<ProfilePage />} />
             </Route>
 
             {/* Fallback */}
-            <Route path="*" element={<Navigate to="/learning-helper" replace />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Router>
         <ToastContainer position="top-right" autoClose={3000} />
