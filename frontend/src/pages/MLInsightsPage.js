@@ -329,7 +329,7 @@ function MLInsightsPage() {
                   <div className="user-stats">
                     <span>Confidence: {(user.prediction?.confidence * 100).toFixed(1)}%</span>
                     <span>Time: {user.features?.time_spent_today}min</span>
-                    <span>Score: {user.features?.avg_quiz_score}%</span>
+                    <span>Score: {typeof user.features?.avg_quiz_score === 'number' ? `${user.features.avg_quiz_score.toFixed(0)}%` : 'No quiz yet'}</span>
                     <span>Streak: {user.features?.login_streak} days</span>
                   </div>
                 </div>

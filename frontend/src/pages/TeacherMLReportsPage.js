@@ -8,6 +8,7 @@ const RISK_COLOR = {
   moderate: '#d97706',
   'moderate-low': '#65a30d',
   low: '#16a34a',
+  new: '#2563eb',
 };
 
 const RISK_BG = {
@@ -16,7 +17,35 @@ const RISK_BG = {
   moderate: '#fffbeb',
   'moderate-low': '#f7fee7',
   low: '#f0fdf4',
+  new: '#eff6ff',
 };
+
+// engaged is true, false, or null (new student without enough activity yet)
+export const engagementStatus = (student) => (
+  student.engaged === true ? 'engaged' : student.engaged === false ? 'at-risk' : 'new'
+);
+const STATUS_STYLE = {
+  engaged: { label: '✅ Engaged', color: '#166534', bg: '#f0fdf4', border: '#86efac', avatar: 'linear-gradient(135deg,#4ade80,#22c55e)' },
+  'at-risk': { label: '⚠️ At Risk', color: '#991b1b', bg: '#fef2f2', border: '#fca5a5', avatar: 'linear-gradient(135deg,#f87171,#ef4444)' },
+  new: { label: '🆕 New – not enough data yet', color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd', avatar: 'linear-gradient(135deg,#60a5fa,#3b82f6)' },
+};
+
+// Metrics are flat ({ accuracy, algorithm, ... }); older model files nested
+// them under the algorithm name, so support both.
+export function describeTraining(response) {
+  const metrics = response?.data?.metrics || {};
+  const algorithm = metrics.algorithm || metrics.best_algorithm;
+  const accuracy = metrics.accuracy ?? metrics[algorithm]?.accuracy;
+  const parts = [`Model retrained (${algorithm || 'unknown algorithm'})`];
+  if (typeof accuracy === 'number') {
+    parts.push(`held-out accuracy ${(accuracy * 100).toFixed(1)}% on ${metrics.test_samples ?? '?'} test rows`);
+  }
+  if (response?.data_source) parts.push(`data: ${response.data_source}`);
+  if (response?.labels) parts.push(`labels: ${response.labels}`);
+  return `${parts.join(' · ')}.`;
+}
+
+export const formatQuizScore = (score) => (typeof score === 'number' ? `${score.toFixed(0)}%` : 'No quiz yet');
 
 export default function TeacherMLReportsPage() {
   const [data, setData] = useState(null);
@@ -24,7 +53,7 @@ export default function TeacherMLReportsPage() {
   const [training, setTraining] = useState(false);
   const [trainResult, setTrainResult] = useState(null);
   const [triggering, setTriggering] = useState(null);
-  const [filter, setFilter] = useState('all'); // all | at-risk | engaged
+  const [filter, setFilter] = useState('all'); // all | at-risk | engaged | new
   const [error, setError] = useState('');
 
   const fetchReport = useCallback(async () => {
@@ -47,7 +76,7 @@ export default function TeacherMLReportsPage() {
     setTrainResult(null);
     try {
       const res = await api.post('/ml/model/train', { use_synthetic_data: false });
-      setTrainResult({ success: true, msg: `Model retrained! Data: ${res.data.data_source}. Accuracy: ${(res.data.data?.metrics?.[res.data.data?.metrics?.best_algorithm]?.accuracy * 100 || 0).toFixed(1)}%` });
+      setTrainResult({ success: true, msg: describeTraining(res.data) });
       fetchReport();
     } catch (e) {
       setTrainResult({ success: false, msg: e.response?.data?.error || 'Training failed' });
@@ -97,11 +126,8 @@ export default function TeacherMLReportsPage() {
   }
 
   const { students = [], stats = {} } = data || {};
-  const filtered = filter === 'at-risk'
-    ? students.filter(s => !s.engaged)
-    : filter === 'engaged'
-      ? students.filter(s => s.engaged)
-      : students;
+  const filtered = filter === 'all' ? students : students.filter(s => engagementStatus(s) === filter);
+  const countOf = (status) => students.filter(s => engagementStatus(s) === status).length;
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1200, margin: '0 auto' }}>
@@ -145,6 +171,7 @@ export default function TeacherMLReportsPage() {
           { icon: '👥', label: 'Total Students', value: stats.total_users || 0, color: '#6366f1' },
           { icon: '✅', label: 'Engaged', value: stats.engaged_users || 0, color: '#16a34a' },
           { icon: '⚠️', label: 'At Risk', value: stats.disengaged_users || 0, color: '#dc2626' },
+          { icon: '🆕', label: 'New (no data yet)', value: stats.new_students || 0, color: '#2563eb' },
           { icon: '📈', label: 'Engagement Rate', value: `${(stats.engagement_rate || 0).toFixed(0)}%`, color: '#0284c7' },
           { icon: '🎯', label: 'Avg Confidence', value: `${((stats.average_confidence || 0) * 100).toFixed(0)}%`, color: '#7c3aed' },
         ].map(card => (
@@ -172,13 +199,13 @@ export default function TeacherMLReportsPage() {
 
       {/* Filter tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {[['all', '📋 All Students'], ['at-risk', '⚠️ At Risk Only'], ['engaged', '✅ Engaged Only']].map(([val, label]) => (
+        {[['all', '📋 All Students'], ['at-risk', '⚠️ At Risk Only'], ['engaged', '✅ Engaged Only'], ['new', '🆕 New']].map(([val, label]) => (
           <button
             key={val}
             onClick={() => setFilter(val)}
             style={{ padding: '7px 18px', borderRadius: 8, border: `2px solid ${filter === val ? '#6366f1' : '#e2e8f0'}`, background: filter === val ? '#eef2ff' : '#fff', color: filter === val ? '#4338ca' : '#64748b', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
           >
-            {label} {val === 'all' ? `(${students.length})` : val === 'at-risk' ? `(${students.filter(s => !s.engaged).length})` : `(${students.filter(s => s.engaged).length})`}
+            {label} ({val === 'all' ? students.length : countOf(val)})
           </button>
         ))}
       </div>
@@ -194,19 +221,21 @@ export default function TeacherMLReportsPage() {
             const info = student.user_info || {};
             const features = student.features || {};
             const recs = student.recommendations || [];
+            const statusKey = engagementStatus(student);
+            const status = STATUS_STYLE[statusKey];
             const riskColor = RISK_COLOR[student.risk_level] || '#64748b';
             const riskBg = RISK_BG[student.risk_level] || '#f8fafc';
 
             return (
               <div
                 key={info.user_id || idx}
-                style={{ background: '#fff', borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,.07)', border: `1.5px solid ${student.engaged ? '#86efac' : '#fca5a5'}` }}
+                style={{ background: '#fff', borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,.07)', border: `1.5px solid ${status.border}` }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
 
                   {/* Left: identity */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 46, height: 46, borderRadius: '50%', background: student.engaged ? 'linear-gradient(135deg,#4ade80,#22c55e)' : 'linear-gradient(135deg,#f87171,#ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 800, flexShrink: 0 }}>
+                    <div style={{ width: 46, height: 46, borderRadius: '50%', background: status.avatar, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 800, flexShrink: 0 }}>
                       {(info.username || '?')[0].toUpperCase()}
                     </div>
                     <div>
@@ -217,15 +246,17 @@ export default function TeacherMLReportsPage() {
 
                   {/* Right: status badges */}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ padding: '4px 12px', borderRadius: 20, background: student.engaged ? '#f0fdf4' : '#fef2f2', color: student.engaged ? '#166534' : '#991b1b', fontWeight: 700, fontSize: 13, border: `1.5px solid ${student.engaged ? '#86efac' : '#fca5a5'}` }}>
-                      {student.engaged ? '✅ Engaged' : '⚠️ At Risk'}
+                    <span style={{ padding: '4px 12px', borderRadius: 20, background: status.bg, color: status.color, fontWeight: 700, fontSize: 13, border: `1.5px solid ${status.border}` }}>
+                      {status.label}
                     </span>
                     <span style={{ padding: '4px 12px', borderRadius: 20, background: riskBg, color: riskColor, fontWeight: 700, fontSize: 12, border: `1.5px solid ${riskColor}` }}>
                       {(student.risk_level || 'low').toUpperCase()}
                     </span>
-                    <span style={{ padding: '4px 12px', borderRadius: 20, background: '#f8fafc', color: '#475569', fontSize: 12, fontWeight: 600, border: '1.5px solid #e2e8f0' }}>
-                      {(student.confidence * 100 || 0).toFixed(0)}% confident
-                    </span>
+                    {statusKey !== 'new' && (
+                      <span style={{ padding: '4px 12px', borderRadius: 20, background: '#f8fafc', color: '#475569', fontSize: 12, fontWeight: 600, border: '1.5px solid #e2e8f0' }}>
+                        {(student.confidence * 100 || 0).toFixed(0)}% confident
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -233,7 +264,7 @@ export default function TeacherMLReportsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12, marginTop: 16 }}>
                   {[
                     { label: '⏱ Time Today', value: `${features.time_spent_today?.toFixed(0) || 0} min` },
-                    { label: '🎯 Quiz Score', value: `${features.avg_quiz_score?.toFixed(0) || 0}%` },
+                    { label: '🎯 Quiz Score', value: formatQuizScore(features.avg_quiz_score) },
                     { label: '🔥 Streak', value: `${features.login_streak || 0} days` },
                     { label: '📚 Lessons/Week', value: features.lessons_completed_week || 0 },
                     { label: '😴 Days Inactive', value: features.days_inactive || 0 },
@@ -260,7 +291,7 @@ export default function TeacherMLReportsPage() {
                 )}
 
                 {/* Engagement recommendations */}
-                {!student.engaged && student.recommendation && student.recommendation.length > 0 && (
+                {statusKey !== 'engaged' && student.recommendation && student.recommendation.length > 0 && (
                   <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 9, background: '#fef9c3', border: '1.5px solid #fde047' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#854d0e', marginBottom: 4 }}>📋 Action Items:</div>
                     <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#713f12' }}>
@@ -277,7 +308,7 @@ export default function TeacherMLReportsPage() {
                   >
                     🧩 Create Support Plan
                   </Link>
-                  {!student.engaged && (
+                  {statusKey === 'at-risk' && (
                     <button
                       onClick={() => triggerIntervention(info.user_id, info.username)}
                       disabled={triggering === info.user_id}

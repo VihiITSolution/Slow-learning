@@ -85,7 +85,7 @@ This research presents an intelligent web-based learning platform designed to id
   - Time spent on platform
   - Streak data
 - **Output**: Binary classification (Engaged/At-Risk)
-- **Accuracy**: 85-90% (training data)
+- **Accuracy**: 78.3% on held-out synthetic data (ROC-AUC 0.84; ceiling ~88%) - not yet validated on real students
 
 **2. Learning Recommendation Engine**
 - **Algorithm**: Content-Based Filtering
@@ -261,7 +261,7 @@ Streak Tracking → Daily Challenge → Engagement
 - **Data Insights**: Real-time analytics for informed decision-making
 
 ### 9.2 Performance Metrics
-- **ML Model Accuracy**: 85-90% for engagement prediction
+- **ML Model Accuracy**: 78.3% held-out accuracy on synthetic data (real-student validation pending)
 - **System Response Time**: <500ms for most API calls
 - **Database Efficiency**: Optimized queries with SQLAlchemy ORM
 - **Scalability**: Support for 500+ concurrent users

@@ -7,13 +7,21 @@ from app import db
 from app.models.user import User
 from app.models.progress import Progress
 from app.models.quiz import QuizAttempt
-from app.ml_models.engagement_predictor import EngagementPredictor
+from app.ml_models.engagement_predictor import FEATURE_NAMES
 from datetime import datetime, timedelta
 from sqlalchemy import func
 
 bp = Blueprint('analytics', __name__)
 
-engagement_predictor = EngagementPredictor()
+_engagement_service = None
+
+
+def _get_engagement_service():
+    global _engagement_service
+    if _engagement_service is None:
+        from app.services.engagement_service import EngagementService
+        _engagement_service = EngagementService()
+    return _engagement_service
 
 
 @bp.route('/dashboard', methods=['GET'])
@@ -69,46 +77,10 @@ def check_engagement():
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
-    # Calculate engagement metrics
-    today = datetime.utcnow().date()
-    week_ago = datetime.utcnow() - timedelta(days=7)
-    
-    # Time spent today
-    today_progress = Progress.query.filter(
-        Progress.user_id == user_id,
-        func.date(Progress.last_accessed) == today
-    ).all()
-    time_spent_today = sum(p.time_spent for p in today_progress) / 60  # Convert to minutes
-    
-    # Lessons completed this week
-    lessons_this_week = Progress.query.filter(
-        Progress.user_id == user_id,
-        Progress.status == 'completed',
-        Progress.completed_at >= week_ago
-    ).count()
-    
-    # Average quiz score
-    avg_quiz_score = db.session.query(func.avg(QuizAttempt.score)).filter_by(
-        user_id=user_id
-    ).scalar() or 0
-    
-    # Days inactive
-    if user.last_login:
-        days_inactive = (datetime.utcnow() - user.last_login).days
-    else:
-        days_inactive = 0
-    
-    # Prepare data for ML model
-    user_data = {
-        'time_spent_today': time_spent_today,
-        'avg_quiz_score': avg_quiz_score,
-        'login_streak': user.current_streak,
-        'lessons_completed_week': lessons_this_week,
-        'days_inactive': days_inactive
-    }
-    
-    # Get engagement prediction
-    prediction = engagement_predictor.predict_engagement(user_data)
+    # Use the same feature extraction as the teacher reports so both always
+    # agree (no-quiz students are "missing", stale streaks are reset, ...)
+    prediction = _get_engagement_service().predict_user_engagement(user_id)
+    user_data = {name: prediction['features'][name] for name in FEATURE_NAMES}
     
     return jsonify({
         'engagement_status': prediction,

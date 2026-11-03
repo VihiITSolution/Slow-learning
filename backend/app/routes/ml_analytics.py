@@ -410,14 +410,24 @@ def train_model():
         if auth_error:
             return auth_error
         
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         algorithm = data.get('algorithm', 'auto')
+        if algorithm not in ('auto', 'logistic', 'svm', 'neural'):
+            return jsonify({'success': False, 'error': 'algorithm must be auto, logistic, svm or neural'}), 400
         use_synthetic = data.get('use_synthetic_data', True)
-        n_samples = data.get('n_samples', 1000)
+        try:
+            n_samples = int(data.get('n_samples', 1000))
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'n_samples must be a number'}), 400
+        n_samples = max(200, min(n_samples, 20000))
+        labels_note = 'synthetic labels from the data generator'
 
         if not use_synthetic:
             # Try to extract real data from the database
             real_data = engagement_service.extract_training_data_from_db()
+            if real_data is not None:
+                labels_note = ('real students are labelled by a rule (3 of 5 activity criteria), '
+                               'not by teachers; synthetic rows come from the data generator')
             if real_data is not None and len(real_data) >= 10:
                 # Supplement with synthetic data to ensure enough samples for training
                 synthetic_data = generate_synthetic_training_data(max(n_samples - len(real_data), 200))
@@ -439,13 +449,17 @@ def train_model():
         
         # Train model
         predictor = EngagementPredictor(algorithm=algorithm)
-        results = predictor.train_model(training_data)
+        results = predictor.train_model(training_data, data_source=f'{data_source}; {labels_note}')
+        # Make this process use the new model straight away (other processes
+        # pick it up automatically because the model file changed)
+        engagement_service.predictor.load_model()
         
         return jsonify({
             'success': True,
             'data': results,
             'message': 'Model trained successfully',
-            'data_source': data_source
+            'data_source': data_source,
+            'labels': labels_note
         }), 200
         
     except Exception as e:
@@ -557,9 +571,10 @@ def class_report():
             students.append({**pred, 'recommendations': recs})
 
         # Sort: disengaged critical first, then by confidence descending
-        risk_order = {'critical': 0, 'high': 1, 'moderate': 2, 'moderate-low': 3, 'low': 4}
+        risk_order = {'critical': 0, 'high': 1, 'moderate': 2, 'moderate-low': 3, 'low': 4, 'new': 5}
+        status_order = {False: 0, None: 1, True: 2}  # at risk, then new, then engaged
         students.sort(key=lambda x: (
-            0 if not x.get('engaged') else 1,
+            status_order.get(x.get('engaged'), 1),
             risk_order.get(x.get('risk_level', 'low'), 5),
             -x.get('confidence', 0)
         ))

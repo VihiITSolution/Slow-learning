@@ -172,11 +172,12 @@ Output:
 - Support Vector Machine (handles non-linear patterns)
 - Neural Network (MLP for complex patterns)
 
-**Performance Metrics:**
-- Accuracy: 85-90%
-- Precision: 86.5%
-- Recall: 88.2%
-- F1 Score: 87.4%
+**Performance Metrics** (held-out synthetic data, not real students):
+- Accuracy: 78.3% (best possible on this data: ~88%)
+- Precision: 78.4%
+- Recall: 78.3%
+- F1 Score: 78.3%
+- ROC-AUC: 0.84
 
 #### B. Learning Recommendation Engine
 
@@ -627,39 +628,31 @@ Slow-learning/
 ### ML Model Performance
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│               ENGAGEMENT PREDICTION MODEL METRICS                  │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                    │
-│  Algorithm Comparison (1000 samples, 80/20 split):                 │
-│                                                                    │
-│  Logistic Regression                                               │
-│  ├── Accuracy:  84.50% ████████████████████                       │
-│  ├── Precision: 83.21% ███████████████████                        │
-│  ├── Recall:    85.67% █████████████████████                      │
-│  └── F1 Score:  84.42% ████████████████████                       │
-│                                                                    │
-│  Support Vector Machine                                            │
-│  ├── Accuracy:  86.23% █████████████████████                      │
-│  ├── Precision: 85.12% ████████████████████                       │
-│  ├── Recall:    87.34% █████████████████████                      │
-│  └── F1 Score:  86.21% █████████████████████                      │
-│                                                                    │
-│  Neural Network (MLPClassifier)                                    │
-│  ├── Accuracy:  87.50% ██████████████████████ ← BEST             │
-│  ├── Precision: 86.54% █████████████████████                      │
-│  ├── Recall:    88.23% ██████████████████████                     │
-│  └── F1 Score:  87.38% ██████████████████████                     │
-│                                                                    │
-│  Feature Importance:                                               │
-│  Days Inactive     ████████████████████████████████████ 35%       │
-│  Login Streak      █████████████████████████ 25%                  │
-│  Avg Quiz Score    ████████████████████ 20%                       │
-│  Time Spent Today  ███████████████ 15%                            │
-│  Lessons Completed █████ 5%                                       │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘
+Engagement model: Logistic Regression (chosen by 5-fold cross-validation)
+Data: 3,000 synthetic students (labels come from the data generator)
+
+Model selection, 5-fold CV on the training split (accuracy):
+  Logistic Regression   78.5% ± 1.6%   <- chosen (highest CV accuracy)
+  SVM (RBF)             78.4% ± 1.6%
+  Neural Network (MLP)  77.6% ± 1.5%
+
+Held-out test split (600 rows, not used for training or selection):
+  Accuracy 78.3% · Precision 78.4% · Recall 78.3% · F1 78.3% · ROC-AUC 0.84
+
+30,000 fresh synthetic students: accuracy 78.3% (77.7-78.7%), ROC-AUC 0.84
+Ceiling: ~88% (about 12% of synthetic labels are flipped on purpose)
+
+Feature importance (share of |standardised coefficient|):
+  Time spent today        35.6%  (+)
+  Days inactive           18.2%  (-)
+  Login streak            16.1%  (+)
+  Lessons completed/week  15.8%  (+)
+  Average quiz score      14.3%  (+)
 ```
+
+> These numbers measure how well the model recovers the synthetic data
+> generator. The model has **not yet been validated on real students**. See
+> [ML_MODEL_DOCUMENTATION.md](ML_MODEL_DOCUMENTATION.md#evaluation--limitations).
 
 ---
 

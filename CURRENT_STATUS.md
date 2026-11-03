@@ -67,7 +67,7 @@ Open in browser: http://localhost:5000/api/ml/model/info
 
 ### ✅ ML Model System
 - [x] Model trained and loaded
-- [x] Algorithm: Logistic Regression (100% accuracy)
+- [x] Algorithm: Logistic Regression (78% held-out accuracy on synthetic data)
 - [x] Feature extraction working
 - [x] Prediction endpoints active
 - [x] Health monitoring operational
@@ -235,7 +235,7 @@ netstat -ano | findstr :3000
 **You now have:**
 
 1. ✅ **Working Backend** with Flask running on port 5000
-2. ✅ **Trained ML Model** (100% accuracy, Logistic Regression)
+2. ✅ **Trained ML Model** (Logistic Regression, 78% held-out accuracy on synthetic data)
 3. ✅ **10 ML API Endpoints** fully functional
 4. ✅ **Engagement Prediction System** operational
 5. ✅ **Notification Service** ready for integration

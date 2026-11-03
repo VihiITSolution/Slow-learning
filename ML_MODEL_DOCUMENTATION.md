@@ -94,7 +94,7 @@ python train_engagement_model.py
 python train_engagement_model.py --samples 2000 --algorithm auto
 
 # Options:
-#   --samples N        Number of synthetic samples (default: 1000)
+#   --samples N        Number of synthetic samples (default: 3000)
 #   --algorithm TYPE   Algorithm: auto, logistic, svm, neural (default: auto)
 #   --real-data        Use database data (requires populated DB)
 ```
@@ -292,12 +292,16 @@ Response:
   "success": true,
   "data": {
     "trained": true,
-    "algorithm": "neural",
+    "algorithm": "logistic",
     "metrics": {
-      "accuracy": 0.8750,
-      "precision": 0.8654,
-      "recall": 0.8823,
-      "f1_score": 0.8738
+      "algorithm": "logistic",
+      "accuracy": 0.783,
+      "precision": 0.784,
+      "recall": 0.783,
+      "f1_score": 0.783,
+      "roc_auc": 0.844,
+      "test_samples": 600,
+      "evaluation": "held-out test split, not used for training or model selection"
     },
     "feature_names": [
       "time_spent_today",
@@ -433,34 +437,62 @@ for user_pred in disengaged:
 
 ## Model Performance
 
-### Typical Metrics (After Training)
+### Evaluation & limitations
+
+The shipped model (`backend/app/ml_models/saved_models/engagement_model.pkl`)
+was produced with `python train_engagement_model.py --evaluate` using the
+versions in `requirements.txt` (scikit-learn 1.3.0).
 
 ```
-Algorithm Comparison:
-├── Logistic Regression
-│   ├── Accuracy:  0.8450
-│   ├── Precision: 0.8321
-│   ├── Recall:    0.8567
-│   └── F1 Score:  0.8442
-├── SVM
-│   ├── Accuracy:  0.8623
-│   ├── Precision: 0.8512
-│   ├── Recall:    0.8734
-│   └── F1 Score:  0.8621
-└── Neural Network
-    ├── Accuracy:  0.8750
-    ├── Precision: 0.8654
-    ├── Recall:    0.8823
-    └── F1 Score:  0.8738
+Data: 3,000 synthetic students (seed 42), 80/20 stratified split
+
+Model selection - 5-fold cross-validation on the training split only:
+  Logistic Regression   0.785 ± 0.016   <- chosen
+  SVM (RBF)             0.784 ± 0.016
+  Neural Network (MLP)  0.776 ± 0.015
+
+Held-out test split (600 rows, never used for training or selection):
+  Accuracy 0.783 · Precision 0.784 · Recall 0.783 · F1 0.783 · ROC-AUC 0.844
+  Confusion matrix [[TN 245, FP 58], [FN 72, TP 225]]
+
+Fresh synthetic students (3 x 10,000, unseen seeds):
+  Accuracy 0.783 (0.777-0.787) · ROC-AUC 0.841
 ```
+
+What these numbers do and do not show:
+
+- **Synthetic labels.** The training data and its labels come from
+  `generate_synthetic_training_data`, which derives every feature and the
+  label from one hidden "engagement" score and flips ~12% of labels. Accuracy
+  therefore measures how well the model recovers that generator; **~88% is the
+  maximum any model can reach on it**. It is not real-world accuracy.
+- **No real-student validation yet.** To report real accuracy, compare
+  predictions with teacher judgements - for example the outcomes recorded in
+  Support Plans (improved / unchanged / needs more support).
+- **"Retrain with real data"** labels database students with
+  `rule_based_engagement_label` (3 of 5 activity criteria). A model trained on
+  those labels learns the rule, so its accuracy is also not real-world accuracy.
+- **New students.** A student who joined in the last 7 days and has no
+  completed lessons or quiz attempts is reported as `engaged: null`,
+  `risk_level: "new"` and receives no automatic interventions.
+- **Missing quiz scores** are replaced with the training average (neutral),
+  not treated as 0%. A login streak only counts if the student logged in today
+  or yesterday.
+- **Time of day.** `time_spent_today` resets at midnight (UTC), so the same
+  student scores lower early in the day than in the evening.
+- **Confidence / risk levels.** On fresh synthetic data, predictions with
+  confidence above 0.8 are right 87% of the time, 0.6-0.8 about 77%, and
+  0.5-0.6 about 58%.
 
 ### Feature Importance
 
-1. **Days Inactive** (35%): Strongest predictor
-2. **Login Streak** (25%): Strong engagement indicator
-3. **Average Quiz Score** (20%): Performance matters
-4. **Time Spent Today** (15%): Current activity level
-5. **Lessons Completed** (5%): Weekly productivity
+Share of the absolute standardised logistic-regression coefficient:
+
+1. **Time Spent Today** (35.6%, +)
+2. **Days Inactive** (18.2%, -)
+3. **Login Streak** (16.1%, +)
+4. **Lessons Completed This Week** (15.8%, +)
+5. **Average Quiz Score** (14.3%, +)
 
 ## Customization
 
