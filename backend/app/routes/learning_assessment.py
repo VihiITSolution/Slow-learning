@@ -291,9 +291,13 @@ def submit_assessment():
 
 
 @bp.route('/save-to-profile', methods=['POST'])
+@jwt_required()
 def save_assessment_to_profile():
-    """Save assessment results to student's profile"""
-    data = request.get_json()
+    """Save assessment results to student's profile (teachers/admins only)"""
+    staff = User.query.get(int(get_jwt_identity()))
+    if not staff or staff.role not in ('teacher', 'admin'):
+        return jsonify({'error': 'Access denied. Teacher or admin role required'}), 403
+    data = request.get_json(silent=True) or {}
     
     user_id = data.get('user_id')
     learning_style = data.get('learning_style')
@@ -305,8 +309,8 @@ def save_assessment_to_profile():
         return jsonify({'error': 'Missing required fields'}), 400
     
     user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
+    if not user or user.role != 'student':
+        return jsonify({'error': 'Student not found'}), 404
     
     # Update user's assessment data
     user.learning_style = learning_style

@@ -11,6 +11,18 @@ import pandas as pd
 
 ml_analytics_bp = Blueprint('ml_analytics', __name__, url_prefix='/api/ml')
 
+
+def _with_lesson_details(recs, lessons):
+    """Add title/category to recommender output so pages can show real lesson names."""
+    by_id = {lesson.id: lesson for lesson in lessons}
+    detailed = []
+    for rec in recs:
+        lesson = by_id.get(rec.get('lesson_id'))
+        if lesson:
+            detailed.append({**rec, 'title': lesson.title, 'category': lesson.category,
+                             'difficulty_level': lesson.difficulty_level})
+    return detailed
+
 # Initialize service
 engagement_service = EngagementService()
 
@@ -532,7 +544,7 @@ def my_engagement_report():
         lessons_df = pd.DataFrame([l.to_dict() for l in lessons])
         recs = recommender.get_content_based_recommendations(completed_ids, lessons_df, n_recommendations=5) if not lessons_df.empty else []
 
-        result['recommendations'] = recs
+        result['recommendations'] = _with_lesson_details(recs, lessons)
         return jsonify({'success': True, 'data': result}), 200
     except ValueError as e:
         return jsonify({'success': False, 'error': str(e)}), 404
@@ -568,7 +580,7 @@ def class_report():
                 p.lesson_id for p in Progress.query.filter_by(user_id=uid, status='completed').all()
             ]
             recs = recommender.get_content_based_recommendations(completed_ids, lessons_df, n_recommendations=3) if not lessons_df.empty else []
-            students.append({**pred, 'recommendations': recs})
+            students.append({**pred, 'recommendations': _with_lesson_details(recs, lessons)})
 
         # Sort: disengaged critical first, then by confidence descending
         risk_order = {'critical': 0, 'high': 1, 'moderate': 2, 'moderate-low': 3, 'low': 4, 'new': 5}

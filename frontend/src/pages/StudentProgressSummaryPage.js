@@ -104,9 +104,9 @@ export default function StudentProgressSummaryPage() {
         {[
           { icon: '⏱', label: 'Time Today', value: `${(features.time_spent_today || 0).toFixed(0)} min`, color: '#6366f1', max: 60, raw: features.time_spent_today || 0 },
           { icon: '🎯', label: 'Avg Quiz Score', value: typeof features.avg_quiz_score === 'number' ? `${features.avg_quiz_score.toFixed(0)}%` : 'No quiz yet', color: '#0284c7', max: 100, raw: features.avg_quiz_score || 0 },
-          { icon: '🔥', label: 'Login Streak', value: `${features.login_streak || 0} days`, color: '#f59e0b', max: 30, raw: features.login_streak || 0 },
+          { icon: '🔥', label: 'Login Streak', value: `${features.login_streak || 0} ${(features.login_streak || 0) === 1 ? 'day' : 'days'}`, color: '#f59e0b', max: 30, raw: features.login_streak || 0 },
           { icon: '📚', label: 'Lessons This Week', value: features.lessons_completed_week || 0, color: '#16a34a', max: 7, raw: features.lessons_completed_week || 0 },
-          { icon: '😴', label: 'Days Inactive', value: `${features.days_inactive || 0} days`, color: features.days_inactive > 3 ? '#dc2626' : '#16a34a', max: 7, raw: Math.min(features.days_inactive || 0, 7), invert: true },
+          { icon: '😴', label: 'Days Inactive', value: `${features.days_inactive || 0} ${(features.days_inactive || 0) === 1 ? 'day' : 'days'}`, color: features.days_inactive > 3 ? '#dc2626' : '#16a34a', max: 7, raw: Math.min(features.days_inactive || 0, 7), invert: true },
         ].map(stat => (
           <div key={stat.label} style={{ background: '#fff', borderRadius: 12, padding: '18px 16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)', border: '1px solid #f1f5f9' }}>
             <div style={{ fontSize: 26, marginBottom: 6 }}>{stat.icon}</div>

@@ -323,7 +323,7 @@ function MLInsightsPage() {
                     <span>Confidence: {((user.confidence || 0) * 100).toFixed(1)}%</span>
                     <span>Time today: {Math.round(user.features?.time_spent_today || 0)} min</span>
                     <span>Score: {typeof user.features?.avg_quiz_score === 'number' ? `${user.features.avg_quiz_score.toFixed(0)}%` : 'No quiz yet'}</span>
-                    <span>Streak: {user.features?.login_streak} days</span>
+                    <span>Streak: {user.features?.login_streak ?? 0} {user.features?.login_streak === 1 ? 'day' : 'days'}</span>
                   </div>
                 </div>
               ))}

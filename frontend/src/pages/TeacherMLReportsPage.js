@@ -265,7 +265,7 @@ export default function TeacherMLReportsPage() {
                   {[
                     { label: '⏱ Time Today', value: `${features.time_spent_today?.toFixed(0) || 0} min` },
                     { label: '🎯 Quiz Score', value: formatQuizScore(features.avg_quiz_score) },
-                    { label: '🔥 Streak', value: `${features.login_streak || 0} days` },
+                    { label: '🔥 Streak', value: `${features.login_streak || 0} ${(features.login_streak || 0) === 1 ? 'day' : 'days'}` },
                     { label: '📚 Lessons/Week', value: features.lessons_completed_week || 0 },
                     { label: '😴 Days Inactive', value: features.days_inactive || 0 },
                   ].map(stat => (
