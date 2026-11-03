@@ -21,7 +21,7 @@ class NotificationService:
     """
     
     @staticmethod
-    def send_engagement_notification(user_id, notification_type='motivation'):
+    def send_engagement_notification(user_id, notification_type='motivation', send_email=True):
         """
         Send engagement notification to user
         
@@ -33,6 +33,10 @@ class NotificationService:
                 - 'gentle_reminder': Moderate risk
                 - 'achievement': Positive reinforcement
                 - 'streak_reminder': Streak at risk
+            send_email: Whether to deliver the notification by email as well as
+                in-app. Staff-triggered engagement interventions use the
+                default so that a real email is sent for every notification
+                type, not only the ones labelled high priority.
         
         Returns:
             dict with notification details
@@ -51,7 +55,7 @@ class NotificationService:
         
         # Send notification (implement your notification system here)
         result = NotificationService._deliver_notification(
-            user, notification
+            user, notification, send_email=send_email
         )
         
         # Log notification
@@ -83,6 +87,7 @@ class NotificationService:
                     f"Your learning journey is waiting for you. 🚀"
                 ),
                 'priority': 'high',
+                'bonus_xp': 50,
                 'action_text': 'Claim Bonus XP',
                 'action_url': '/dashboard'
             },
@@ -93,6 +98,7 @@ class NotificationService:
                     f"25 bonus XP. You're doing great - don't lose momentum! 📚"
                 ),
                 'priority': 'medium',
+                'bonus_xp': 25,
                 'action_text': 'Start Learning',
                 'action_url': '/lessons'
             },
@@ -103,6 +109,7 @@ class NotificationService:
                     f"Check out new lessons and keep building your skills! 🎯"
                 ),
                 'priority': 'low',
+                'bonus_xp': None,
                 'action_text': 'Browse Lessons',
                 'action_url': '/lessons'
             },
@@ -113,6 +120,7 @@ class NotificationService:
                     f"with {user.total_xp} XP. Keep up the excellent work! 🌟"
                 ),
                 'priority': 'medium',
+                'bonus_xp': None,
                 'action_text': 'View Achievements',
                 'action_url': '/achievements'
             },
@@ -123,6 +131,7 @@ class NotificationService:
                     f"Complete a lesson today to keep it going. You've got this! 💪"
                 ),
                 'priority': 'high',
+                'bonus_xp': None,
                 'action_text': 'Save My Streak',
                 'action_url': '/lessons'
             }
@@ -140,7 +149,7 @@ class NotificationService:
         )
     
     @staticmethod
-    def _deliver_notification(user, notification):
+    def _deliver_notification(user, notification, send_email=True):
         """
         Deliver notification through various channels
         
@@ -159,8 +168,11 @@ class NotificationService:
         )
         delivery_results.append(in_app_result)
         
-        # 2. Email notification (for high priority)
-        if notification['priority'] == 'high':
+        # 2. Email notification. Previously this was limited to notifications
+        # marked "high" priority, while the staff action sent the "motivation"
+        # (medium priority) notification. The UI therefore reported success
+        # even though no email was ever attempted.
+        if send_email:
             email_result = NotificationService._send_email_notification(
                 user, notification
             )
@@ -170,11 +182,18 @@ class NotificationService:
         # push_result = NotificationService._send_push_notification(user, notification)
         # delivery_results.append(push_result)
         
+        failed_channels = [
+            result for result in delivery_results
+            if result.get('status') != 'sent'
+        ]
+
         return {
-            'success': True,
+            'success': not failed_channels,
             'user_id': user.id,
             'notification_type': notification['title'],
             'channels': delivery_results,
+            'error': failed_channels[0].get('error') or failed_channels[0].get('message')
+                if failed_channels else None,
             'timestamp': datetime.utcnow().isoformat()
         }
     
@@ -250,12 +269,7 @@ class NotificationService:
                     'message': 'User has no email address'
                 }
             
-            # Determine bonus XP based on notification type
-            bonus_xp = None
-            if 'urgent' in notification.get('title', '').lower():
-                bonus_xp = 50
-            elif 'keep going' in notification.get('message', '').lower():
-                bonus_xp = 25
+            bonus_xp = notification.get('bonus_xp')
             
             # Build full action URL
             base_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')

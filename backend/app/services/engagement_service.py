@@ -196,8 +196,7 @@ class EngagementService:
             if risk_level == 'critical' and confidence > 0.8:
                 actions_taken.extend([
                     self._send_notification(user_id, 'urgent_motivation'),
-                    self._award_bonus_xp(user_id, 50),
-                    self._send_email(user_id, 'comeback_campaign')
+                    self._award_bonus_xp(user_id, 50)
                 ])
             
             # High risk - strong intervention
@@ -261,24 +260,6 @@ class EngagementService:
                 'error': str(e),
                 'status': 'failed'
             }
-    
-    def _send_email(self, user_id, email_type):
-        """
-        Send email to user (placeholder - implement with your email system)
-        
-        Args:
-            user_id: User ID
-            email_type: Type of email campaign
-            
-        Returns:
-            dict with action details
-        """
-        # TODO: Integrate with actual email service (SendGrid, AWS SES, etc.)
-        return {
-            'action': 'email_sent',
-            'type': email_type,
-            'status': 'queued'
-        }
     
     def get_engagement_statistics(self):
         """

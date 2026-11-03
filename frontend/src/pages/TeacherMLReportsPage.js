@@ -59,8 +59,17 @@ export default function TeacherMLReportsPage() {
   const triggerIntervention = async (userId, username) => {
     setTriggering(userId);
     try {
-      await api.post(`/ml/engagement/trigger-actions/${userId}`);
-      alert(`✅ Intervention triggered for ${username}! Encouragement notification sent.`);
+      const response = await api.post(`/ml/engagement/trigger-actions/${userId}`);
+      const notification = response.data?.data?.actions_taken?.find(action => action?.channels);
+      const email = notification?.channels?.find(channel => channel.channel === 'email');
+
+      if (email?.status === 'sent') {
+        alert(`✅ Intervention triggered for ${username}. The encouragement email was sent to ${email.email}.`);
+      } else if (email) {
+        alert(`⚠️ Intervention triggered for ${username}, but the email was not sent: ${email.error || email.message || 'unknown error'}.`);
+      } else {
+        alert(`⚠️ No email notification was triggered for ${username}.`);
+      }
     } catch (e) {
       alert('Failed to trigger intervention');
     } finally {
