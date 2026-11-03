@@ -1,0 +1,71 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import '@testing-library/jest-dom';
+import SupportPlansPage from './SupportPlansPage';
+import api from '../services/api';
+
+jest.mock('../services/api');
+jest.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 9, username: 'teacher', role: 'teacher' } }),
+}));
+
+const reviewedPlan = {
+  id: 1, student_id: 2, student_name: 'sam', teacher_id: 9, teacher_name: 'teacher',
+  intervention_type: 'visual_support', goal: 'Read two short pages.', review_date: '2026-10-25T00:00:00',
+  status: 'reviewed', outcome: 'improved', baseline_snapshot: {}, review_snapshot: {},
+  metric_comparison: {
+    total_xp: { baseline: 5, review: 20, change: 15 }, lessons_completed: { baseline: 1, review: 2, change: 1 },
+    quizzes_taken: { baseline: 0, review: 1, change: 1 }, total_time_spent: { baseline: 4, review: 15, change: 11 },
+    current_streak: { baseline: 1, review: 2, change: 1 }, engagement: { baseline: false, review: true },
+    risk_level: { baseline: 'high', review: 'low' },
+  },
+};
+
+function mockPageData(plans = []) {
+  api.get.mockImplementation((url) => {
+    if (url === '/support-plans') return Promise.resolve({ data: { data: plans } });
+    if (url === '/auth/students') return Promise.resolve({ data: { students: [{ id: 2, username: 'sam' }] } });
+    return Promise.resolve({ data: {} });
+  });
+}
+
+function renderPage(path = '/teacher/support-plans') {
+  return render(<MemoryRouter initialEntries={[path]}><SupportPlansPage /></MemoryRouter>);
+}
+
+describe('SupportPlansPage', () => {
+  beforeEach(() => { jest.clearAllMocks(); });
+
+  test('opens a preselected student form and creates a support plan', async () => {
+    mockPageData();
+    api.post.mockResolvedValue({ data: { success: true } });
+    renderPage('/teacher/support-plans?studentId=2');
+
+    await waitFor(() => expect(screen.getByLabelText('Student')).toHaveValue('2'));
+    fireEvent.change(screen.getByLabelText('Learning goal'), { target: { value: 'Read two short pages.' } });
+    fireEvent.click(screen.getByRole('button', { name: /create plan & capture baseline/i }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith('/support-plans', expect.objectContaining({ student_id: 2, goal: 'Read two short pages.' }));
+      expect(screen.getByText(/baseline metrics captured/i)).toBeInTheDocument();
+    });
+  });
+
+  test('shows reviewed comparison data and outcome', async () => {
+    mockPageData([reviewedPlan]);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Reviewed' }));
+
+    await waitFor(() => expect(screen.getByText('Baseline vs review')).toBeInTheDocument());
+    expect(screen.getByText('Improved')).toBeInTheDocument();
+    expect(screen.getByText('5 → 20')).toBeInTheDocument();
+    expect(screen.getByText(/At risk → Engaged/i)).toBeInTheDocument();
+  });
+
+  test('shows API errors to the teacher', async () => {
+    api.get.mockRejectedValue({ response: { data: { error: 'Access denied' } } });
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Access denied')).toBeInTheDocument());
+  });
+});

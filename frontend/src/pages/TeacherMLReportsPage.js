@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { Link } from 'react-router-dom';
 
 const RISK_COLOR = {
   critical: '#dc2626',
@@ -260,8 +261,14 @@ export default function TeacherMLReportsPage() {
                 )}
 
                 {/* Trigger intervention */}
-                {!student.engaged && (
-                  <div style={{ marginTop: 14 }}>
+                <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <Link
+                    to={`/teacher/support-plans?studentId=${info.user_id}`}
+                    style={{ padding: '8px 20px', borderRadius: 8, border: '1.5px solid #6366f1', background: '#eef2ff', color: '#4338ca', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}
+                  >
+                    🧩 Create Support Plan
+                  </Link>
+                  {!student.engaged && (
                     <button
                       onClick={() => triggerIntervention(info.user_id, info.username)}
                       disabled={triggering === info.user_id}
@@ -269,8 +276,8 @@ export default function TeacherMLReportsPage() {
                     >
                       {triggering === info.user_id ? '⏳ Sending…' : '🚨 Send Encouragement & Boost XP'}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })}

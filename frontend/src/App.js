@@ -33,6 +33,7 @@ import MaterialsLibraryPage from './pages/MaterialsLibraryPage';
 import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
 import TeacherMLReportsPage from './pages/TeacherMLReportsPage';
 import StudentProgressSummaryPage from './pages/StudentProgressSummaryPage';
+import SupportPlansPage from './pages/SupportPlansPage';
 
 // Components
 import PrivateRoute from './components/common/PrivateRoute';
@@ -81,6 +82,7 @@ function App() {
               <Route index element={<Navigate to="/teacher/dashboard" replace />} />
               <Route path="dashboard" element={<TeacherDashboardPage />} />
               <Route path="ml-reports" element={<TeacherMLReportsPage />} />
+              <Route path="support-plans" element={<SupportPlansPage />} />
             </Route>
 
             {/* Private Routes - Main App */}

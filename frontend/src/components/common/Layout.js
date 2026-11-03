@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { FiHome, FiBook, FiAward, FiTrendingUp, FiUser, FiLogOut, FiSettings, FiUsers, FiBarChart2, FiPackage } from 'react-icons/fi';
+import { FiHome, FiBook, FiAward, FiTrendingUp, FiUser, FiLogOut, FiSettings, FiUsers, FiBarChart2, FiPackage, FiClipboard } from 'react-icons/fi';
 import { FaBrain, FaGraduationCap, FaGamepad } from 'react-icons/fa';
 
 const Layout = () => {
@@ -48,6 +48,9 @@ const Layout = () => {
               </Link>
               <Link to="/teacher/ml-reports" className="nav-link">
                 <FaBrain /> ML Class Report
+              </Link>
+              <Link to="/teacher/support-plans" className="nav-link">
+                <FiClipboard /> Support Plans
               </Link>
               <Link to="/student-selection" className="nav-link">
                 <FaGraduationCap /> Start Assessment

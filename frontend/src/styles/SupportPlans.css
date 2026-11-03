@@ -1,0 +1,28 @@
+.support-plans-page { max-width: 1200px; margin: 0 auto; padding: 24px 32px 40px; color: #1e293b; }
+.support-plans-header, .plans-toolbar, .plan-card-top, .header-actions, .form-actions, .plan-badges, .comparison-statuses { display: flex; align-items: center; gap: 12px; }
+.support-plans-header, .plans-toolbar, .plan-card-top { justify-content: space-between; }
+.support-plans-header { margin-bottom: 24px; flex-wrap: wrap; }
+.support-plans-header h1 { margin: 0; font-size: 28px; }
+.support-plans-header p { color: #64748b; margin: 5px 0 0; }
+.header-actions, .plans-toolbar, .plan-card-top { flex-wrap: wrap; }
+.primary-button, .secondary-button, .review-button, .filter-tabs button { border-radius: 8px; padding: 9px 16px; font-weight: 700; cursor: pointer; font-size: 14px; }
+.primary-button { border: none; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; }
+.primary-button:disabled { background: #94a3b8; cursor: not-allowed; }
+.secondary-button, .filter-tabs button { border: 1.5px solid #cbd5e1; background: white; color: #475569; }
+.filter-tabs { display: flex; gap: 8px; }
+.filter-tabs button.selected { background: #eef2ff; color: #4338ca; border-color: #6366f1; }
+.plan-message { padding: 12px 16px; border-radius: 9px; margin-bottom: 18px; font-weight: 600; }
+.plan-message.success { color: #166534; background: #f0fdf4; border: 1px solid #86efac; }
+.plan-message.error { color: #991b1b; background: #fef2f2; border: 1px solid #fca5a5; }
+.plan-form, .review-form { display: grid; gap: 14px; background: #fff; border: 1px solid #c7d2fe; box-shadow: 0 2px 8px rgba(15, 23, 42, .06); border-radius: 14px; padding: 22px 24px; margin-bottom: 24px; }
+.plan-form h2, .review-form h2 { margin: 0; font-size: 19px; }.review-form p { margin: 5px 0; color: #64748b; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.plan-form label, .review-form label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; color: #334155; }.plan-form label span { color: #94a3b8; font-weight: 500; }
+.plan-form input, .plan-form select, .plan-form textarea, .review-form select, .review-form textarea { box-sizing: border-box; width: 100%; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 9px 10px; font: inherit; color: #1e293b; background: white; }
+.plan-form textarea, .review-form textarea { min-height: 68px; resize: vertical; }.form-actions { justify-content: flex-end; }
+.plans-toolbar { margin-bottom: 16px; }.plans-list { display: grid; gap: 16px; }.plans-empty { background: white; border: 1px dashed #cbd5e1; padding: 46px; text-align: center; border-radius: 12px; color: #64748b; font-size: 16px; }.plans-empty div { font-size: 34px; margin-bottom: 8px; }
+.support-plan-card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(15, 23, 42, .06); padding: 20px 22px; border-radius: 14px; }.plan-card-top h3 { margin: 0; font-size: 18px; }.plan-card-top p { margin: 4px 0 0; color: #64748b; font-size: 13px; }
+.status-badge, .outcome-badge, .strategy { border-radius: 20px; padding: 5px 11px; font-size: 12px; font-weight: 800; }.status-badge.active { color: #1d4ed8; background: #eff6ff; }.status-badge.reviewed { color: #166534; background: #f0fdf4; }.outcome-badge.improved { color: #166534; background: #dcfce7; }.outcome-badge.unchanged { color: #92400e; background: #fef3c7; }.outcome-badge.needs_support { color: #991b1b; background: #fee2e2; }
+.strategy { display: inline-block; color: #4338ca; background: #eef2ff; margin-top: 14px; }.plan-goal, .plan-notes { margin: 12px 0 0; line-height: 1.5; font-size: 14px; }.plan-notes { color: #64748b; }.review-button { margin-top: 16px; border: none; background: #0f766e; color: white; }
+.comparison-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid #e2e8f0; }.comparison-section h4 { margin: 0 0 11px; font-size: 14px; }.comparison-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 9px; }.comparison-item { background: #f8fafc; border-radius: 8px; padding: 9px; display: grid; gap: 3px; }.comparison-item span, .comparison-item small { color: #64748b; font-size: 11px; }.comparison-item strong { font-size: 13px; }.comparison-item small.positive { color: #15803d; }.comparison-item small.negative { color: #dc2626; }.comparison-statuses { margin-top: 12px; color: #475569; flex-wrap: wrap; font-size: 13px; }
+@media (max-width: 640px) { .support-plans-page { padding: 20px 16px; }.support-plans-header h1 { font-size: 23px; }.header-actions, .header-actions button, .plans-toolbar, .plans-toolbar .secondary-button { width: 100%; }.plan-card-top { align-items: flex-start; }.form-actions { justify-content: stretch; }.form-actions button { flex: 1; } }
