@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
-import SupportPlansPage from './SupportPlansPage';
+import SupportPlansPage, { defaultReviewDate } from './SupportPlansPage';
 import api from '../services/api';
 
 jest.mock('../services/api');
@@ -43,6 +43,7 @@ describe('SupportPlansPage', () => {
     renderPage('/teacher/support-plans?studentId=2');
 
     await waitFor(() => expect(screen.getByLabelText('Student')).toHaveValue('2'));
+    fireEvent.change(screen.getByLabelText('Support strategy'), { target: { value: 'visual_support' } });
     fireEvent.change(screen.getByLabelText('Learning goal'), { target: { value: 'Read two short pages.' } });
     fireEvent.click(screen.getByRole('button', { name: /create plan & capture baseline/i }));
 
@@ -67,5 +68,106 @@ describe('SupportPlansPage', () => {
     api.get.mockRejectedValue({ response: { data: { error: 'Access denied' } } });
     renderPage();
     await waitFor(() => expect(screen.getByText('Access denied')).toBeInTheDocument());
+  });
+
+  test('default review date is seven days ahead in local time', () => {
+    expect(defaultReviewDate(new Date(2026, 10, 28, 1, 30))).toBe('2026-12-05');
+    expect(defaultReviewDate(new Date(2026, 11, 30))).toBe('2027-01-06');
+  });
+
+  test('records a review outcome and refreshes the list', async () => {
+    const activePlan = { ...reviewedPlan, id: 3, status: 'active', outcome: null, metric_comparison: null };
+    mockPageData([activePlan]);
+    api.post.mockResolvedValue({ data: { success: true } });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /review outcome/i }));
+    expect(screen.getByLabelText('Outcome')).toHaveValue('');
+    fireEvent.click(screen.getByRole('button', { name: /record outcome/i }));
+    expect(await screen.findByText(/choose an outcome/i)).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Outcome'), { target: { value: 'needs_support' } });
+    fireEvent.change(screen.getByLabelText('Outcome notes'), { target: { value: 'Still guessing words' } });
+    fireEvent.click(screen.getByRole('button', { name: /record outcome/i }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/support-plans/3/review', {
+      outcome: 'needs_support', outcome_notes: 'Still guessing words',
+    }));
+    expect(await screen.findByText(/outcome recorded/i)).toBeInTheDocument();
+  });
+
+  test('shows Unknown when the ML engagement state was not available', async () => {
+    const unknownPlan = {
+      ...reviewedPlan,
+      metric_comparison: { ...reviewedPlan.metric_comparison, engagement: { baseline: null, review: true } },
+    };
+    mockPageData([unknownPlan]);
+    renderPage();
+    expect(await screen.findByText(/Unknown → Engaged/i)).toBeInTheDocument();
+  });
+
+  test('requires an explicit support strategy before creating', async () => {
+    mockPageData();
+    renderPage('/teacher/support-plans?studentId=2');
+    await waitFor(() => expect(screen.getByLabelText('Student')).toHaveValue('2'));
+    expect(screen.getByLabelText('Support strategy')).toHaveValue('');
+
+    fireEvent.change(screen.getByLabelText('Learning goal'), { target: { value: 'Read two short pages.' } });
+    fireEvent.click(screen.getByRole('button', { name: /create plan & capture baseline/i }));
+
+    expect(await screen.findByText(/choose a support strategy/i)).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  test('author can edit an active plan without changing the student', async () => {
+    const activePlan = {
+      ...reviewedPlan, id: 4, status: 'active', outcome: null, metric_comparison: null,
+      review_date: `${defaultReviewDate()}T00:00:00`, notes: 'Use picture cards.',
+    };
+    mockPageData([activePlan]);
+    api.put.mockResolvedValue({ data: { success: true } });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /edit plan for sam/i }));
+    expect(screen.getByText(/edit support plan for sam/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Student')).toBeDisabled();
+    expect(screen.getByLabelText('Support strategy')).toHaveValue('visual_support');
+    expect(screen.getByLabelText('Review date')).toHaveValue(defaultReviewDate());
+
+    fireEvent.change(screen.getByLabelText('Learning goal'), { target: { value: 'Read three short pages.' } });
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith('/support-plans/4', {
+      intervention_type: 'visual_support',
+      custom_intervention: '',
+      goal: 'Read three short pages.',
+      notes: 'Use picture cards.',
+      review_date: defaultReviewDate(),
+    }));
+    expect(await screen.findByText('Support plan updated.')).toBeInTheDocument();
+  });
+
+  test('shows the baseline and flags an overdue review on active plans', async () => {
+    const overduePlan = {
+      ...reviewedPlan, id: 5, status: 'active', outcome: null, metric_comparison: null,
+      review_date: '2020-01-01T00:00:00',
+      baseline_snapshot: { total_xp: 70, lessons_completed: 3, quizzes_taken: 1, total_time_spent: 30, current_streak: 2, engaged: false, risk_level: 'moderate' },
+    };
+    mockPageData([overduePlan]);
+    renderPage();
+
+    expect(await screen.findByText('Review overdue')).toBeInTheDocument();
+    expect(screen.getByText(/70 XP/)).toBeInTheDocument();
+    expect(screen.getByText(/At risk \(moderate risk\)/)).toBeInTheDocument();
+  });
+
+  test('still lists plans when the student list fails to load', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/support-plans') return Promise.resolve({ data: { data: [reviewedPlan] } });
+      return Promise.reject({ response: { status: 500 } });
+    });
+    renderPage();
+    expect(await screen.findByText('Read two short pages.')).toBeInTheDocument();
   });
 });

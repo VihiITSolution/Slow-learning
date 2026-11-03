@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -20,18 +20,47 @@ const OUTCOMES = [
   ['needs_support', 'Needs more support'],
 ];
 
-const defaultReviewDate = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+// Local calendar dates (toISOString() is UTC, which is a day behind in
+// Sri Lanka between midnight and 05:30).
+const localISODate = (date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, '0'),
+  String(date.getDate()).padStart(2, '0'),
+].join('-');
+export const defaultReviewDate = (from = new Date()) => localISODate(
+  new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7)
+);
+const todayISODate = () => localISODate(new Date());
 const emptyForm = (studentId = '') => ({
   student_id: studentId,
-  intervention_type: 'visual_support',
+  // No default strategy/outcome: teachers must choose one explicitly so a
+  // forgotten default is never recorded as research data.
+  intervention_type: '',
   custom_intervention: '',
   goal: '',
   notes: '',
   review_date: defaultReviewDate(),
 });
+const emptyReviewForm = () => ({ outcome: '', outcome_notes: '' });
+
+const planDate = (plan) => (plan.review_date || '').slice(0, 10);
+const reviewDue = (plan) => {
+  if (plan.status !== 'active' || !plan.review_date) return null;
+  const date = planDate(plan);
+  const today = todayISODate();
+  if (date < today) return 'overdue';
+  if (date === today) return 'today';
+  return null;
+};
+const formatDate = (iso) => {
+  if (!iso) return '—';
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString();
+};
 
 const labelFor = (value, options) => options.find(([key]) => key === value)?.[1] || value;
 const signed = (value) => `${value > 0 ? '+' : ''}${value || 0}`;
+const engagementLabel = (engaged) => (engaged === true ? 'Engaged' : engaged === false ? 'At risk' : 'Unknown');
 
 function MetricComparison({ comparison }) {
   if (!comparison) return null;
@@ -58,10 +87,22 @@ function MetricComparison({ comparison }) {
         })}
       </div>
       <div className="comparison-statuses">
-        <span>Engagement: <strong>{comparison.engagement?.baseline ? 'Engaged' : 'At risk'} → {comparison.engagement?.review ? 'Engaged' : 'At risk'}</strong></span>
+        <span>Engagement: <strong>{engagementLabel(comparison.engagement?.baseline)} → {engagementLabel(comparison.engagement?.review)}</strong></span>
         <span>ML risk: <strong>{comparison.risk_level?.baseline || '—'} → {comparison.risk_level?.review || '—'}</strong></span>
       </div>
     </div>
+  );
+}
+
+function BaselineSummary({ snapshot }) {
+  if (!snapshot || Object.keys(snapshot).length === 0) return null;
+  return (
+    <p className="plan-baseline">
+      <strong>Baseline:</strong> ⚡ {snapshot.total_xp ?? 0} XP · 📚 {snapshot.lessons_completed ?? 0} lessons ·
+      {' '}📝 {snapshot.quizzes_taken ?? 0} quizzes · ⏱ {snapshot.total_time_spent ?? 0} min ·
+      {' '}🔥 {snapshot.current_streak ?? 0}-day streak · ML: {engagementLabel(snapshot.engaged)}
+      {snapshot.risk_level ? ` (${snapshot.risk_level} risk)` : ''}
+    </p>
   );
 }
 
@@ -75,20 +116,23 @@ export default function SupportPlansPage() {
   const [form, setForm] = useState(() => emptyForm(selectedStudentId));
   const [showForm, setShowForm] = useState(Boolean(selectedStudentId));
   const [reviewingPlan, setReviewingPlan] = useState(null);
-  const [reviewForm, setReviewForm] = useState({ outcome: 'improved', outcome_notes: '' });
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [reviewForm, setReviewForm] = useState(emptyReviewForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const reviewFormRef = useRef(null);
+  const planFormRef = useRef(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [plansResponse, studentsResponse] = await Promise.all([
-        api.get('/support-plans', { params: { status: filter } }),
-        api.get('/auth/students'),
-      ]);
+      // Load students separately so a failure there never hides the plan list.
+      api.get('/auth/students')
+        .then(response => setStudents(response.data?.students || []))
+        .catch(() => setStudents([]));
+      const plansResponse = await api.get('/support-plans', { params: { status: filter } });
       setPlans(plansResponse.data.data || []);
-      setStudents(studentsResponse.data.students || []);
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.error || 'Could not load support plans.' });
     } finally {
@@ -104,21 +148,81 @@ export default function SupportPlansPage() {
     }
   }, [selectedStudentId]);
 
+  // The review form renders above the list, so bring it into view when a
+  // teacher clicks "Review outcome" further down the page.
+  useEffect(() => {
+    if (reviewingPlan) reviewFormRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [reviewingPlan]);
+  useEffect(() => {
+    if (editingPlan) planFormRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [editingPlan]);
+
+  const closePlanForm = () => {
+    setShowForm(false);
+    setEditingPlan(null);
+    setForm(emptyForm());
+    if (searchParams.get('studentId')) setSearchParams({});
+  };
+
+  const openCreateForm = () => {
+    setMessage(null);
+    setEditingPlan(null);
+    setReviewingPlan(null);
+    setForm(emptyForm());
+    setShowForm(true);
+  };
+
+  const openEditForm = (plan) => {
+    setMessage(null);
+    setReviewingPlan(null);
+    setEditingPlan(plan);
+    setForm({
+      student_id: String(plan.student_id),
+      intervention_type: plan.intervention_type,
+      custom_intervention: plan.custom_intervention || '',
+      goal: plan.goal || '',
+      notes: plan.notes || '',
+      review_date: planDate(plan),
+    });
+    setShowForm(true);
+  };
+
+  const openReviewForm = (plan) => {
+    setMessage(null);
+    closePlanForm();
+    setReviewingPlan(plan);
+    setReviewForm(emptyReviewForm());
+  };
+
   const studentOptions = useMemo(() => students.map(student => ({ id: String(student.id), name: student.username })), [students]);
 
-  const handleCreate = async (event) => {
+  const handleSavePlan = async (event) => {
     event.preventDefault();
+    const problem = !form.student_id ? 'Please choose a student.'
+      : !form.intervention_type ? 'Please choose a support strategy.'
+        : form.intervention_type === 'other' && !form.custom_intervention.trim() ? 'Please describe the custom strategy.'
+          : !form.goal.trim() ? 'Please enter a learning goal.'
+            : !form.review_date ? 'Please choose a review date.' : null;
+    if (problem) {
+      setMessage({ type: 'error', text: problem });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
-      await api.post('/support-plans', { ...form, student_id: Number(form.student_id) });
-      setMessage({ type: 'success', text: 'Support plan created and baseline metrics captured.' });
-      setForm(emptyForm());
-      setShowForm(false);
-      setSearchParams({});
+      if (editingPlan) {
+        const { student_id, ...changes } = form;
+        await api.put(`/support-plans/${editingPlan.id}`, changes);
+        setMessage({ type: 'success', text: 'Support plan updated.' });
+      } else {
+        await api.post('/support-plans', { ...form, student_id: Number(form.student_id) });
+        setMessage({ type: 'success', text: 'Support plan created and baseline metrics captured.' });
+        if (filter === 'reviewed') setFilter('active');
+      }
+      closePlanForm();
       fetchData();
     } catch (error) {
-      setMessage({ type: 'error', text: error.response?.data?.error || 'Could not create the support plan.' });
+      setMessage({ type: 'error', text: error.response?.data?.error || (editingPlan ? 'Could not update the support plan.' : 'Could not create the support plan.') });
     } finally {
       setSaving(false);
     }
@@ -127,13 +231,17 @@ export default function SupportPlansPage() {
   const handleReview = async (event) => {
     event.preventDefault();
     if (!reviewingPlan) return;
+    if (!reviewForm.outcome) {
+      setMessage({ type: 'error', text: 'Please choose an outcome before recording the review.' });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
       await api.post(`/support-plans/${reviewingPlan.id}/review`, reviewForm);
       setMessage({ type: 'success', text: 'Outcome recorded and review metrics captured.' });
       setReviewingPlan(null);
-      setReviewForm({ outcome: 'improved', outcome_notes: '' });
+      setReviewForm(emptyReviewForm());
       fetchData();
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.error || 'Could not record the outcome.' });
@@ -167,24 +275,25 @@ export default function SupportPlansPage() {
         </div>
         <div className="header-actions">
           <button className="secondary-button" onClick={exportReviewedPlans}>⬇ Export reviewed CSV</button>
-          <button className="primary-button" onClick={() => setShowForm(value => !value)}>{showForm ? 'Close form' : '+ New support plan'}</button>
+          <button className="primary-button" onClick={() => (showForm ? closePlanForm() : openCreateForm())}>{showForm ? 'Close form' : '+ New support plan'}</button>
         </div>
       </header>
 
       {message && <div className={`plan-message ${message.type}`}>{message.text}</div>}
 
       {showForm && (
-        <form className="plan-form" onSubmit={handleCreate}>
-          <h2>Create a support plan</h2>
+        <form className="plan-form" onSubmit={handleSavePlan} ref={planFormRef} noValidate>
+          <h2>{editingPlan ? `Edit support plan for ${editingPlan.student_name}` : 'Create a support plan'}</h2>
           <div className="form-grid">
             <label>Student
-              <select value={form.student_id} onChange={e => setForm({ ...form, student_id: e.target.value })} required>
+              <select value={form.student_id} onChange={e => setForm({ ...form, student_id: e.target.value })} required disabled={Boolean(editingPlan)}>
                 <option value="">Select a student</option>
                 {studentOptions.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}
               </select>
             </label>
             <label>Support strategy
-              <select value={form.intervention_type} onChange={e => setForm({ ...form, intervention_type: e.target.value })}>
+              <select value={form.intervention_type} onChange={e => setForm({ ...form, intervention_type: e.target.value })} required>
+                <option value="">Select a strategy</option>
                 {INTERVENTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
@@ -192,7 +301,7 @@ export default function SupportPlansPage() {
               <input value={form.custom_intervention} onChange={e => setForm({ ...form, custom_intervention: e.target.value })} required placeholder="Describe the strategy" />
             </label>}
             <label>Review date
-              <input type="date" value={form.review_date} min={new Date().toISOString().slice(0, 10)} onChange={e => setForm({ ...form, review_date: e.target.value })} required />
+              <input type="date" value={form.review_date} min={editingPlan && planDate(editingPlan) < todayISODate() ? planDate(editingPlan) : todayISODate()} onChange={e => setForm({ ...form, review_date: e.target.value })} required />
             </label>
           </div>
           <label>Learning goal
@@ -201,15 +310,19 @@ export default function SupportPlansPage() {
           <label>Teacher notes <span>(optional)</span>
             <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Context, materials, or instructions for the strategy" />
           </label>
-          <div className="form-actions"><button className="primary-button" disabled={saving}>{saving ? 'Saving…' : 'Create plan & capture baseline'}</button></div>
+          <div className="form-actions">
+            <button type="button" className="secondary-button" onClick={closePlanForm}>Cancel</button>
+            <button className="primary-button" disabled={saving}>{saving ? 'Saving…' : editingPlan ? 'Save changes' : 'Create plan & capture baseline'}</button>
+          </div>
         </form>
       )}
 
       {reviewingPlan && (
-        <form className="review-form" onSubmit={handleReview}>
+        <form className="review-form" onSubmit={handleReview} ref={reviewFormRef} noValidate>
           <div><h2>Review plan for {reviewingPlan.student_name}</h2><p>{reviewingPlan.goal}</p></div>
           <label>Outcome
-            <select value={reviewForm.outcome} onChange={e => setReviewForm({ ...reviewForm, outcome: e.target.value })}>
+            <select value={reviewForm.outcome} onChange={e => setReviewForm({ ...reviewForm, outcome: e.target.value })} required>
+              <option value="">Select an outcome</option>
               {OUTCOMES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
@@ -234,15 +347,24 @@ export default function SupportPlansPage() {
           {plans.map(plan => (
             <article className="support-plan-card" key={plan.id}>
               <div className="plan-card-top">
-                <div><h3>{plan.student_name}</h3><p>Created by {plan.teacher_name} · Review {new Date(plan.review_date).toLocaleDateString()}</p></div>
-                <div className="plan-badges"><span className={`status-badge ${plan.status}`}>{plan.status}</span>{plan.outcome && <span className={`outcome-badge ${plan.outcome}`}>{labelFor(plan.outcome, OUTCOMES)}</span>}</div>
+                <div><h3>{plan.student_name || `Student #${plan.student_id}`}</h3><p>Created by {plan.teacher_name} · Review {formatDate(plan.review_date)}</p></div>
+                <div className="plan-badges">
+                  {reviewDue(plan) === 'overdue' && <span className="due-badge overdue">Review overdue</span>}
+                  {reviewDue(plan) === 'today' && <span className="due-badge today">Review due today</span>}
+                  <span className={`status-badge ${plan.status}`}>{plan.status}</span>{plan.outcome && <span className={`outcome-badge ${plan.outcome}`}>{labelFor(plan.outcome, OUTCOMES)}</span>}</div>
               </div>
               <div className="strategy">{labelFor(plan.intervention_type, INTERVENTIONS)}{plan.custom_intervention ? `: ${plan.custom_intervention}` : ''}</div>
               <p className="plan-goal"><strong>Goal:</strong> {plan.goal}</p>
               {plan.notes && <p className="plan-notes"><strong>Notes:</strong> {plan.notes}</p>}
               {plan.outcome_notes && <p className="plan-notes"><strong>Outcome notes:</strong> {plan.outcome_notes}</p>}
               {plan.status === 'reviewed' && <MetricComparison comparison={plan.metric_comparison} />}
-              {plan.status === 'active' && canManage(plan) && <button className="review-button" onClick={() => { setReviewingPlan(plan); setReviewForm({ outcome: 'improved', outcome_notes: '' }); }}>Review outcome</button>}
+              {plan.status === 'active' && <BaselineSummary snapshot={plan.baseline_snapshot} />}
+              {plan.status === 'active' && canManage(plan) && (
+                <div className="plan-actions">
+                  <button className="review-button" onClick={() => openReviewForm(plan)}>Review outcome</button>
+                  <button className="secondary-button" onClick={() => openEditForm(plan)} aria-label={`Edit plan for ${plan.student_name}`}>Edit plan</button>
+                </div>
+              )}
             </article>
           ))}
         </div>

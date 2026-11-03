@@ -72,6 +72,15 @@ describe('Layout Component', () => {
     expect(screen.getByText(/Start Assessment/i)).toBeInTheDocument();
   });
 
+  test('teacher and admin sidebars link to Support Plans', () => {
+    const { unmount } = renderLayout('/teacher/dashboard');
+    expect(screen.getByText('Support Plans').closest('a')).toHaveAttribute('href', '/teacher/support-plans');
+    unmount();
+
+    renderLayout('/admin/dashboard');
+    expect(screen.getByText('Support Plans').closest('a')).toHaveAttribute('href', '/teacher/support-plans');
+  });
+
   test('renders sidebar with navigation', () => {
     renderLayout('/app/dashboard');
     

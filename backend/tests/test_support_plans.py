@@ -111,7 +111,7 @@ class TestSupportPlanRoutes:
 
         with app.app_context():
             student = User.query.get(test_student['id'])
-            student.total_xp = 50
+            student.total_xp = 150  # fixture student starts at 100 XP
             student.lessons_completed = 3
             db.session.commit()
 
@@ -137,3 +137,130 @@ class TestSupportPlanRoutes:
         assert 'student_id' in body
         assert str(test_student['id']) in body
         assert test_student['username'] not in body
+
+
+class TestSupportPlanHardening:
+    def test_students_are_forbidden_on_every_endpoint(self, client, teacher_token, student_token, test_student, monkeypatch):
+        monkeypatch.setattr(support_plans, 'capture_snapshot', snapshot)
+        plan_id = client.post('/api/support-plans/', json=plan_payload(test_student['id']),
+                              headers=get_auth_headers(teacher_token)).get_json()['data']['id']
+        headers = get_auth_headers(student_token)
+        responses = [
+            client.post('/api/support-plans/', json=plan_payload(test_student['id']), headers=headers),
+            client.get(f'/api/support-plans/{plan_id}', headers=headers),
+            client.put(f'/api/support-plans/{plan_id}', json={'goal': 'x'}, headers=headers),
+            client.post(f'/api/support-plans/{plan_id}/review', json={'outcome': 'improved'}, headers=headers),
+            client.get('/api/support-plans/export', headers=headers),
+        ]
+        assert [r.status_code for r in responses] == [403] * len(responses)
+
+    def test_ml_failure_does_not_block_create_or_review(self, client, teacher_token, test_student, monkeypatch):
+        def broken_prediction(_user_id):
+            raise RuntimeError('model unavailable')
+        monkeypatch.setattr(support_plans.engagement_service, 'predict_user_engagement', broken_prediction)
+        headers = get_auth_headers(teacher_token)
+
+        response = client.post('/api/support-plans/', json=plan_payload(test_student['id']), headers=headers)
+        assert response.status_code == 201
+        baseline = response.get_json()['data']['baseline_snapshot']
+        assert baseline['total_xp'] == 100
+        assert baseline['engaged'] is None and baseline['risk_level'] is None
+        assert 'ml_error' in baseline
+
+        plan_id = response.get_json()['data']['id']
+        response = client.post(f'/api/support-plans/{plan_id}/review', json={'outcome': 'unchanged'}, headers=headers)
+        assert response.status_code == 200
+
+    def test_missing_or_invalid_fields_return_400_not_500(self, client, teacher_token, test_student, monkeypatch):
+        monkeypatch.setattr(support_plans, 'capture_snapshot', snapshot)
+        headers = get_auth_headers(teacher_token)
+        payload = plan_payload(test_student['id'])
+
+        assert client.post('/api/support-plans/', json={**payload, 'student_id': None}, headers=headers).status_code == 400
+        assert client.post('/api/support-plans/', json={**payload, 'student_id': 'abc'}, headers=headers).status_code == 404
+        assert client.post('/api/support-plans/', json={**payload, 'goal': 123}, headers=headers).status_code == 400
+        assert client.post('/api/support-plans/', json={**payload, 'goal': '   '}, headers=headers).status_code == 400
+        assert client.post('/api/support-plans/', json={**payload, 'intervention_type': 'other'}, headers=headers).status_code == 400
+        assert client.post('/api/support-plans/', json={**payload, 'notes': ['x']}, headers=headers).status_code == 400
+
+        plan_id = client.post('/api/support-plans/', json=payload, headers=headers).get_json()['data']['id']
+        review_url = f'/api/support-plans/{plan_id}/review'
+        assert client.post(review_url, json={'outcome': 5}, headers=headers).status_code == 400
+        assert client.post(review_url, json={'outcome': 'great'}, headers=headers).status_code == 400
+
+    def test_partial_update_keeps_other_fields(self, client, teacher_token, test_student, monkeypatch):
+        monkeypatch.setattr(support_plans, 'capture_snapshot', snapshot)
+        headers = get_auth_headers(teacher_token)
+        created = client.post('/api/support-plans/', json=plan_payload(test_student['id']), headers=headers).get_json()['data']
+
+        response = client.put(f"/api/support-plans/{created['id']}", json={'notes': 'Now using a visual timetable.'}, headers=headers)
+        assert response.status_code == 200
+        updated = response.get_json()['data']
+        assert updated['notes'] == 'Now using a visual timetable.'
+        assert updated['goal'] == created['goal']
+        assert updated['intervention_type'] == created['intervention_type']
+        assert updated['review_date'] == created['review_date']
+        assert updated['baseline_snapshot'] == created['baseline_snapshot']
+
+        past = (datetime.utcnow() - timedelta(days=3)).date().isoformat()
+        assert client.put(f"/api/support-plans/{created['id']}", json={'review_date': past}, headers=headers).status_code == 400
+
+    def test_overdue_plan_can_still_be_edited(self, app, client, teacher_token, test_student, monkeypatch):
+        monkeypatch.setattr(support_plans, 'capture_snapshot', snapshot)
+        headers = get_auth_headers(teacher_token)
+        plan_id = client.post('/api/support-plans/', json=plan_payload(test_student['id']), headers=headers).get_json()['data']['id']
+        overdue = datetime.utcnow() - timedelta(days=3)
+        with app.app_context():
+            plan = InterventionPlan.query.get(plan_id)
+            plan.review_date = overdue
+            db.session.commit()
+
+        response = client.put(f'/api/support-plans/{plan_id}', headers=headers, json={
+            'goal': 'Updated goal', 'review_date': overdue.date().isoformat(),
+        })
+        assert response.status_code == 200
+        assert response.get_json()['data']['goal'] == 'Updated goal'
+
+    def test_csv_export_neutralises_spreadsheet_formulas(self, client, teacher_token, test_student, monkeypatch):
+        monkeypatch.setattr(support_plans, 'capture_snapshot', snapshot)
+        headers = get_auth_headers(teacher_token)
+        plan_id = client.post('/api/support-plans/', json=plan_payload(test_student['id'], goal='=HYPERLINK("http://x")'),
+                              headers=headers).get_json()['data']['id']
+        client.post(f'/api/support-plans/{plan_id}/review', json={'outcome': 'improved', 'outcome_notes': '+cmd'}, headers=headers)
+
+        import csv, io
+        rows = list(csv.DictReader(io.StringIO(client.get('/api/support-plans/export', headers=headers).get_data(as_text=True))))
+        assert len(rows) == 1
+        assert rows[0]['goal'].startswith("'=")
+        assert rows[0]['outcome_notes'] == "'+cmd"
+        assert rows[0]['student_id'] == str(test_student['id'])
+
+    def test_csv_export_redacts_student_identity_in_free_text(self, client, teacher_token, test_student, monkeypatch):
+        monkeypatch.setattr(support_plans, 'capture_snapshot', snapshot)
+        headers = get_auth_headers(teacher_token)
+        goal = f"Help {test_student['username']} read two pages"
+        plan_id = client.post('/api/support-plans/', json=plan_payload(test_student['id'], goal=goal),
+                              headers=headers).get_json()['data']['id']
+        client.post(f'/api/support-plans/{plan_id}/review', headers=headers,
+                    json={'outcome': 'improved', 'outcome_notes': f"Emailed {test_student['email']} parents"})
+
+        body = client.get('/api/support-plans/export', headers=headers).get_data(as_text=True)
+        assert test_student['username'] not in body
+        assert test_student['email'] not in body
+        assert 'Help [student] read two pages' in body
+        assert 'Emailed [student] parents' in body
+
+    def test_review_fails_cleanly_when_student_was_removed(self, app, client, teacher_token, test_student, monkeypatch):
+        monkeypatch.setattr(support_plans, 'capture_snapshot', snapshot)
+        headers = get_auth_headers(teacher_token)
+        plan_id = client.post('/api/support-plans/', json=plan_payload(test_student['id']), headers=headers).get_json()['data']['id']
+        with app.app_context():
+            db.session.delete(User.query.get(test_student['id']))
+            db.session.commit()
+
+        response = client.post(f'/api/support-plans/{plan_id}/review', json={'outcome': 'improved'}, headers=headers)
+        assert response.status_code == 409
+
+
+def test_tests_never_use_the_development_database(app):
+    assert 'dev_database' not in str(db.engine.url)
