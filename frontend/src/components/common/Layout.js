@@ -36,6 +36,9 @@ const Layout = () => {
               <Link to="/admin/analytics" className="nav-link">
                 <FiBarChart2 /> Analytics
               </Link>
+              <Link to="/teacher/support-plans" className="nav-link">
+                <FiClipboard /> Support Plans
+              </Link>
               <Link to="/app/dashboard" className="nav-link">
                 <FiUser /> Switch to User View
               </Link>

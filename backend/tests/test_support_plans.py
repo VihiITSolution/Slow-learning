@@ -249,3 +249,18 @@ class TestSupportPlanHardening:
         assert test_student['email'] not in body
         assert 'Help [student] read two pages' in body
         assert 'Emailed [student] parents' in body
+
+    def test_review_fails_cleanly_when_student_was_removed(self, app, client, teacher_token, test_student, monkeypatch):
+        monkeypatch.setattr(support_plans, 'capture_snapshot', snapshot)
+        headers = get_auth_headers(teacher_token)
+        plan_id = client.post('/api/support-plans/', json=plan_payload(test_student['id']), headers=headers).get_json()['data']['id']
+        with app.app_context():
+            db.session.delete(User.query.get(test_student['id']))
+            db.session.commit()
+
+        response = client.post(f'/api/support-plans/{plan_id}/review', json={'outcome': 'improved'}, headers=headers)
+        assert response.status_code == 409
+
+
+def test_tests_never_use_the_development_database(app):
+    assert 'dev_database' not in str(db.engine.url)

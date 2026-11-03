@@ -307,6 +307,8 @@ def review_plan(plan_id):
         return jsonify({'success': False, 'error': str(exc)}), 400
     if outcome not in OUTCOMES:
         return jsonify({'success': False, 'error': 'Outcome must be improved, unchanged, or needs_support'}), 400
+    if not plan.student:
+        return jsonify({'success': False, 'error': 'The student for this plan no longer exists'}), 409
     plan.outcome = outcome
     plan.outcome_notes = outcome_notes
     plan.review_snapshot = capture_snapshot(plan.student)

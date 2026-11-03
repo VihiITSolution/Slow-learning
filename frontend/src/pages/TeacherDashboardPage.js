@@ -224,6 +224,11 @@ const TeacherDashboardPage = () => {
             <h3>ML Class Report</h3>
             <p>AI engagement analysis for all students</p>
           </Link>
+          <Link to="/teacher/support-plans" className="action-card">
+            <div className="action-icon">🧩</div>
+            <h3>Support Plans</h3>
+            <p>Plan support and review what changed</p>
+          </Link>
           <button className="action-card" onClick={fetchTeacherData}>
             <div className="action-icon">🔄</div>
             <h3>Refresh Data</h3>

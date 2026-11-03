@@ -32,7 +32,9 @@ def app():
     os.environ['TESTING'] = 'True'
     os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
     
-    app = create_app()
+    # Use the testing config: the default (development) config points at the
+    # real instance/dev_database.db, and drop_all() below would wipe it.
+    app = create_app('testing')
     app.config.update({
         'TESTING': True,
         'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
