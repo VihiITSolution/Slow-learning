@@ -200,7 +200,15 @@ MAIL_DEFAULT_SENDER=your-email@gmail.com
 UPLOAD_FOLDER=uploads
 MAX_CONTENT_LENGTH=16777216  # 16MB
 ALLOWED_EXTENSIONS=png,jpg,jpeg,gif,pdf,doc,docx
+
+# AI assistant for teachers (Optional - free key at https://aistudio.google.com/apikey)
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.5-flash-lite
 ```
+
+The AI assistant (support plan suggestions, progress summaries, class summary and
+encouragement messages) is described in [AI_ASSISTANT.md](AI_ASSISTANT.md). It only
+sends anonymous numbers to Google and works with built-in suggestions when no key is set.
 
 ### Frontend Configuration
 

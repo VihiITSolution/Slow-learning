@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { AIClassSummary, EncouragementComposer } from '../components/ai/AIAssist';
 import { Link } from 'react-router-dom';
 
 const RISK_COLOR = {
@@ -79,6 +80,8 @@ export default function TeacherMLReportsPage() {
   const [training, setTraining] = useState(false);
   const [trainResult, setTrainResult] = useState(null);
   const [triggering, setTriggering] = useState(null);
+  const [composing, setComposing] = useState(null);   // student getting an encouragement message
+  const [sentTo, setSentTo] = useState(null);
   const [filter, setFilter] = useState('all'); // all | at-risk | engaged | new
   const [error, setError] = useState('');
 
@@ -223,6 +226,9 @@ export default function TeacherMLReportsPage() {
         </div>
       )}
 
+      {/* AI class summary (Gemini, with a built-in fallback) */}
+      {students.length > 0 && <AIClassSummary />}
+
       {/* Filter tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {[['all', '📋 All Students'], ['at-risk', '⚠️ At Risk Only'], ['engaged', '✅ Engaged Only'], ['new', '🆕 New']].map(([val, label]) => (
@@ -339,6 +345,13 @@ export default function TeacherMLReportsPage() {
                   >
                     🧩 Create Support Plan
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => { setComposing(info.user_id); setSentTo(null); }}
+                    style={{ padding: '8px 20px', borderRadius: 8, border: '1.5px solid #ddd6fe', background: '#faf5ff', color: '#6d28d9', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                  >
+                    ✨ Write encouragement
+                  </button>
                   {statusKey === 'at-risk' && (
                     <button
                       onClick={() => triggerIntervention(info.user_id, info.username)}
@@ -349,6 +362,18 @@ export default function TeacherMLReportsPage() {
                     </button>
                   )}
                 </div>
+                {composing === info.user_id && (
+                  <EncouragementComposer
+                    student={info}
+                    onClose={() => setComposing(null)}
+                    onSent={() => { setComposing(null); setSentTo(info.user_id); }}
+                  />
+                )}
+                {sentTo === info.user_id && (
+                  <div role="status" style={{ marginTop: 10, color: '#15803d', fontWeight: 600, fontSize: 13 }}>
+                    💌 Message sent - {info.username} will see it on their dashboard.
+                  </div>
+                )}
               </div>
             );
           })}

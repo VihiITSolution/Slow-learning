@@ -120,6 +120,23 @@ def text_field(data, key, max_length):
     return value
 
 
+def link_ai_suggestion(suggestion_id, plan, staff):
+    """Record that the teacher built this plan from an AI suggestion (for the research log)."""
+    if suggestion_id in (None, ''):
+        return
+    from app.models.ai import AISuggestion
+    try:
+        suggestion = AISuggestion.query.get(int(suggestion_id))
+    except (TypeError, ValueError):
+        return
+    if (suggestion and suggestion.kind == AISuggestion.PLAN and suggestion.teacher_id == staff.id
+            and suggestion.student_id == plan.student_id):
+        suggestion.plan_id = plan.id
+        suggestion.used = True
+        suggestion.used_at = datetime.utcnow()
+        db.session.commit()
+
+
 def validate_plan_data(data, require_review_date=True):
     intervention_type = text_field(data, 'intervention_type', 50)
     goal = text_field(data, 'goal', 2000)
@@ -172,6 +189,7 @@ def create_plan():
     )
     db.session.add(plan)
     db.session.commit()
+    link_ai_suggestion(data.get('ai_suggestion_id'), plan, staff)
     return jsonify({'success': True, 'data': plan.to_dict()}), 201
 
 

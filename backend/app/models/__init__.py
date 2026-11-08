@@ -10,5 +10,6 @@ from app.models.quiz import Quiz, QuizAttempt
 from app.models.game_session import GameSession
 from app.models.intervention_plan import InterventionPlan
 from app.models.activity import ActivityAttempt
+from app.models.ai import AISuggestion, TeacherMessage
 
-__all__ = ['User', 'Lesson', 'Progress', 'Achievement', 'Leaderboard', 'Quiz', 'QuizAttempt', 'GameSession', 'InterventionPlan', 'ActivityAttempt']
+__all__ = ['User', 'Lesson', 'Progress', 'Achievement', 'Leaderboard', 'Quiz', 'QuizAttempt', 'GameSession', 'InterventionPlan', 'ActivityAttempt', 'AISuggestion', 'TeacherMessage']

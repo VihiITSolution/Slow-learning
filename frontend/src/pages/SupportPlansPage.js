@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { PlanSuggestion, ReviewSummary, aiButtonStyle, aiErrorText, useAIStatus } from '../components/ai/AIAssist';
 import '../styles/SupportPlans.css';
 
 const INTERVENTIONS = [
@@ -31,6 +32,10 @@ export const defaultReviewDate = (from = new Date()) => localISODate(
   new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7)
 );
 const todayISODate = () => localISODate(new Date());
+const daysFromToday = (days) => {
+  const d = new Date();
+  return localISODate(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+};
 const emptyForm = (studentId = '') => ({
   student_id: studentId,
   // No default strategy/outcome: teachers must choose one explicitly so a
@@ -131,6 +136,12 @@ export default function SupportPlansPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const aiStatus = useAIStatus();
+  const [planAI, setPlanAI] = useState(null);        // AI plan suggestion being shown
+  const [usedPlanAI, setUsedPlanAI] = useState(null); // suggestion id the form was filled from
+  const [reviewAI, setReviewAI] = useState(null);
+  const [reviewAIAdded, setReviewAIAdded] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const reviewFormRef = useRef(null);
   const planFormRef = useRef(null);
 
@@ -171,6 +182,8 @@ export default function SupportPlansPage() {
     setShowForm(false);
     setEditingPlan(null);
     setForm(emptyForm());
+    setPlanAI(null);
+    setUsedPlanAI(null);
     if (searchParams.get('studentId')) setSearchParams({});
   };
 
@@ -202,6 +215,64 @@ export default function SupportPlansPage() {
     closePlanForm();
     setReviewingPlan(plan);
     setReviewForm(emptyReviewForm());
+    setReviewAI(null);
+    setReviewAIAdded(false);
+  };
+
+  const suggestPlan = async () => {
+    if (!form.student_id) {
+      setMessage({ type: 'error', text: 'Choose a student first, then ask for a suggestion.' });
+      return;
+    }
+    setAiLoading(true);
+    setMessage(null);
+    try {
+      const res = await api.post('/ai/support-plan/suggest', { student_id: Number(form.student_id) });
+      setPlanAI(res.data.data);
+    } catch (error) {
+      setMessage({ type: 'error', text: aiErrorText(error) });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const usePlanSuggestion = () => {
+    const s = planAI.suggestion;
+    const strategies = s.strategies.map(item => `- ${item}`).join('\n');
+    setForm(current => ({
+      ...current,
+      intervention_type: s.intervention_type,
+      custom_intervention: s.custom_intervention || '',
+      goal: s.goal,
+      review_date: daysFromToday(s.review_in_days),
+      notes: [current.notes.trim(), `Strategies:\n${strategies}`].filter(Boolean).join('\n\n'),
+    }));
+    setUsedPlanAI(planAI.suggestion_id);
+    setPlanAI(null);
+  };
+
+  const summariseReview = async () => {
+    setAiLoading(true);
+    setMessage(null);
+    try {
+      const res = await api.post(`/ai/support-plans/${reviewingPlan.id}/review-summary`);
+      setReviewAI(res.data.data);
+      setReviewAIAdded(false);
+    } catch (error) {
+      setMessage({ type: 'error', text: aiErrorText(error) });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const addReviewSummaryToNotes = () => {
+    const s = reviewAI.suggestion;
+    setReviewForm(current => ({
+      ...current,
+      outcome_notes: [current.outcome_notes.trim(), `${s.summary} Next step: ${s.next_step}`].filter(Boolean).join('\n\n'),
+    }));
+    setReviewAIAdded(true);
+    api.post(`/ai/suggestions/${reviewAI.suggestion_id}/used`).catch(() => {});
   };
 
   const studentOptions = useMemo(() => students.map(student => ({ id: String(student.id), name: student.username })), [students]);
@@ -225,7 +296,7 @@ export default function SupportPlansPage() {
         await api.put(`/support-plans/${editingPlan.id}`, changes);
         setMessage({ type: 'success', text: 'Support plan updated.' });
       } else {
-        await api.post('/support-plans', { ...form, student_id: Number(form.student_id) });
+        await api.post('/support-plans', { ...form, student_id: Number(form.student_id), ai_suggestion_id: usedPlanAI || undefined });
         setMessage({ type: 'success', text: 'Support plan created and baseline metrics captured.' });
         if (filter === 'reviewed') setFilter('active');
       }
@@ -296,7 +367,7 @@ export default function SupportPlansPage() {
           <h2>{editingPlan ? `Edit support plan for ${editingPlan.student_name}` : 'Create a support plan'}</h2>
           <div className="form-grid">
             <label>Student
-              <select value={form.student_id} onChange={e => setForm({ ...form, student_id: e.target.value })} required disabled={Boolean(editingPlan)}>
+              <select value={form.student_id} onChange={e => { setForm({ ...form, student_id: e.target.value }); setPlanAI(null); setUsedPlanAI(null); }} required disabled={Boolean(editingPlan)}>
                 <option value="">Select a student</option>
                 {studentOptions.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}
               </select>
@@ -314,6 +385,18 @@ export default function SupportPlansPage() {
               <input type="date" value={form.review_date} min={editingPlan && planDate(editingPlan) < todayISODate() ? planDate(editingPlan) : todayISODate()} onChange={e => setForm({ ...form, review_date: e.target.value })} required />
             </label>
           </div>
+          {!editingPlan && (
+            <div className="ai-row">
+              <button type="button" style={aiButtonStyle} onClick={suggestPlan} disabled={aiLoading || !form.student_id}>
+                {aiLoading ? '⏳ Thinking…' : '✨ Suggest a plan with AI'}
+              </button>
+              <span className="ai-hint">
+                {!form.student_id ? 'Choose a student first.' : aiStatus && !aiStatus.enabled ? 'AI key not set - you will get a basic suggestion.' : 'Uses this student\'s numbers only - no names are shared.'}
+              </span>
+              {usedPlanAI && <span className="ai-used">✨ Filled from the AI suggestion - check and edit before saving.</span>}
+            </div>
+          )}
+          {planAI && <PlanSuggestion result={planAI} labelFor={value => labelFor(value, INTERVENTIONS)} onUse={usePlanSuggestion} onDismiss={() => setPlanAI(null)} />}
           <label>Learning goal
             <textarea value={form.goal} onChange={e => setForm({ ...form, goal: e.target.value })} required placeholder="What improvement do you expect to see?" />
           </label>
@@ -330,6 +413,13 @@ export default function SupportPlansPage() {
       {reviewingPlan && (
         <form className="review-form" onSubmit={handleReview} ref={reviewFormRef} noValidate>
           <div><h2>Review plan for {reviewingPlan.student_name}</h2><p>{reviewingPlan.goal}</p></div>
+          <div className="ai-row">
+            <button type="button" style={aiButtonStyle} onClick={summariseReview} disabled={aiLoading}>
+              {aiLoading ? '⏳ Thinking…' : '✨ Summarise progress with AI'}
+            </button>
+            <span className="ai-hint">Explains the before and after numbers. You still choose the outcome.</span>
+          </div>
+          {reviewAI && <ReviewSummary result={reviewAI} outcomeLabel={value => labelFor(value, OUTCOMES)} onAddToNotes={addReviewSummaryToNotes} added={reviewAIAdded} />}
           <label>Outcome
             <select value={reviewForm.outcome} onChange={e => setReviewForm({ ...reviewForm, outcome: e.target.value })} required>
               <option value="">Select an outcome</option>
@@ -361,6 +451,7 @@ export default function SupportPlansPage() {
                 <div className="plan-badges">
                   {reviewDue(plan) === 'overdue' && <span className="due-badge overdue">Review overdue</span>}
                   {reviewDue(plan) === 'today' && <span className="due-badge today">Review due today</span>}
+                  {plan.ai_assisted && <span className="ai-badge" title="Built from an AI suggestion, then checked by the teacher">✨ AI-assisted</span>}
                   <span className={`status-badge ${plan.status}`}>{plan.status}</span>{plan.outcome && <span className={`outcome-badge ${plan.outcome}`}>{labelFor(plan.outcome, OUTCOMES)}</span>}</div>
               </div>
               <div className="strategy">{labelFor(plan.intervention_type, INTERVENTIONS)}{plan.custom_intervention ? `: ${plan.custom_intervention}` : ''}</div>

@@ -40,6 +40,15 @@ class Config:
     PROFILE_PICTURE_FOLDER = os.path.join(UPLOAD_FOLDER, 'profiles')
     ASSIGNMENT_FOLDER = os.path.join(UPLOAD_FOLDER, 'assignments')
 
+    # AI assistant (Google Gemini). Optional: without a key the AI buttons
+    # use simple built-in suggestions instead.
+    GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY') or None
+    GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.5-flash-lite')
+    # Used if Google retires the main model name
+    GEMINI_FALLBACK_MODEL = os.environ.get('GEMINI_FALLBACK_MODEL', 'gemini-flash-latest')
+    GEMINI_API_BASE = os.environ.get('GEMINI_API_BASE', 'https://generativelanguage.googleapis.com/v1beta')
+    GEMINI_TIMEOUT = int(os.environ.get('GEMINI_TIMEOUT', 20))
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""
@@ -59,6 +68,8 @@ class TestingConfig(Config):
     """Testing configuration"""
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///test_database.db'
+    # Tests never call Google; they switch the key on and mock the reply
+    GEMINI_API_KEY = None
 
 
 config = {

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FiBook, FiAward } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { TeacherMessageCard } from '../components/ai/AIAssist';
 
 const DashboardPage = () => {
   const { user } = useAuth();
@@ -151,6 +152,9 @@ const DashboardPage = () => {
                     )}
                   </div>
                   
+                  {/* Message from the teacher (often drafted with AI, always sent by the teacher) */}
+                  <TeacherMessageCard />
+
                   {/* Practice and games */}
                   <div style={{marginTop: '30px'}}>
                     <h2 className="page-title" style={{fontSize: '32px', marginBottom: '20px'}}>🎮 Play & Learn 🌈</h2>
