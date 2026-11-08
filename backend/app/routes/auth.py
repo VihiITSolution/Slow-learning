@@ -81,11 +81,17 @@ def register():
     if role not in ['student', 'teacher']:
         return jsonify({'error': 'Invalid role. Only student or teacher allowed'}), 400
     
-    # Create new user
+    # Create new user. Signing up logs the user in, so it is their first
+    # login: start the daily streak (otherwise it stays 0 until they log in
+    # again, and the engagement model sees no streak on day one)
+    now = datetime.utcnow()
     user = User(
         username=data['username'],
         email=data['email'],
-        role=role
+        role=role,
+        last_login=now,
+        current_streak=1,
+        longest_streak=1
     )
     user.set_password(data['password'])
     

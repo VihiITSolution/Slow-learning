@@ -181,7 +181,9 @@ def start_lesson(lesson_id):
         )
         db.session.add(progress)
     else:
-        progress.status = 'in_progress'
+        # Reviewing a finished lesson must not undo its completion
+        if progress.status != 'completed':
+            progress.status = 'in_progress'
         progress.last_accessed = datetime.utcnow()
         if not progress.started_at:
             progress.started_at = datetime.utcnow()
@@ -282,6 +284,8 @@ def complete_lesson(lesson_id):
     if not isinstance(time_spent, (int, float)) or time_spent < 0 or time_spent > 86400:
         return jsonify({'error': 'Invalid time_spent. Must be between 0 and 86400 seconds (24 hours)'}), 400
     
+    already_completed = progress.status == 'completed'
+    
     # Update progress
     progress.status = 'completed'
     progress.completion_percentage = 100
@@ -289,19 +293,27 @@ def complete_lesson(lesson_id):
     progress.last_accessed = datetime.utcnow()  # keep feature extraction accurate
     progress.time_spent = int(time_spent)
     
-    # Award XP to user and record time for ML feature tracking
+    # Award XP once per lesson (reviewing a finished lesson earns nothing),
+    # and record time for ML feature tracking either way
     user = User.query.get(user_id)
-    leveled_up = user.add_xp(lesson.xp_reward)
-    user.lessons_completed = (user.lessons_completed or 0) + 1
+    if already_completed:
+        leveled_up = False
+        xp_earned = 0
+    else:
+        leveled_up = user.add_xp(lesson.xp_reward)
+        xp_earned = lesson.xp_reward
+        user.lessons_completed = (user.lessons_completed or 0) + 1
     # Update total_time_spent (in minutes) so ML engagement features are accurate
-    user.total_time_spent = (user.total_time_spent or 0) + max(0, int(time_spent) // 60)
+    # (rounded to the nearest minute, so short lessons are not lost)
+    user.total_time_spent = (user.total_time_spent or 0) + max(0, int(round(time_spent / 60)))
     
     db.session.commit()
     
     response = {
         'message': 'Lesson completed',
         'progress': progress.to_dict(),
-        'xp_earned': lesson.xp_reward,
+        'xp_earned': xp_earned,
+        'already_completed': already_completed,
         'total_xp': user.total_xp,
         'level': user.level
     }
@@ -344,6 +356,38 @@ def update_progress(lesson_id):
     }), 200
 
 
+@bp.route('/<int:lesson_id>/quiz', methods=['GET'])
+@jwt_required()
+def get_quiz(lesson_id):
+    """
+    Get a lesson's quiz questions (without the correct answers)
+    ---
+    tags:
+      - Lessons
+    security:
+      - Bearer: []
+    parameters:
+      - {in: path, name: lesson_id, type: integer, required: true}
+    responses:
+      200: {description: Quiz questions}
+      404: {description: Lesson or quiz not found}
+    """
+    if not Lesson.query.get(lesson_id):
+        return jsonify({'error': 'Lesson not found'}), 404
+    quiz = Quiz.query.filter_by(lesson_id=lesson_id, is_active=True).first()
+    if not quiz or not quiz.questions:
+        return jsonify({'error': 'No quiz found for this lesson'}), 404
+    return jsonify({
+        'id': quiz.id,
+        'lesson_id': lesson_id,
+        'title': quiz.title,
+        'passing_score': quiz.passing_score,
+        'xp_reward': quiz.xp_reward,
+        # Never send the answers to the browser before the quiz is submitted
+        'questions': [{'q': q.get('q'), 'options': q.get('options', [])} for q in quiz.questions],
+    }), 200
+
+
 @bp.route('/<int:lesson_id>/quiz', methods=['POST'])
 @jwt_required()
 def submit_quiz(lesson_id):
@@ -373,12 +417,16 @@ def submit_quiz(lesson_id):
         return jsonify({'error': 'Quiz has no questions'}), 500
 
     correct_count = 0
+    review = []
     for i, question in enumerate(questions):
-        if i < len(answers) and answers[i] == question.get('correct'):
-            correct_count += 1
+        given = answers[i] if i < len(answers) else None
+        is_correct = given == question.get('correct')
+        correct_count += int(is_correct)
+        review.append({'your_answer': given, 'correct_answer': question.get('correct'), 'is_correct': is_correct})
 
     score = round((correct_count / total) * 100, 1)
     passed = score >= quiz.passing_score
+    passed_before = QuizAttempt.query.filter_by(user_id=user_id, quiz_id=quiz.id, passed=True).count() > 0
 
     attempt = QuizAttempt(
         user_id=user_id,
@@ -394,10 +442,12 @@ def submit_quiz(lesson_id):
     xp_earned = 0
     leveled_up = False
     user = User.query.get(user_id)
-    if passed:
+    # Every attempt counts as a quiz taken (the ML features use all attempts);
+    # quiz XP is only given the first time the quiz is passed
+    user.quizzes_taken = (user.quizzes_taken or 0) + 1
+    if passed and not passed_before:
         xp_earned = quiz.xp_reward
         leveled_up = user.add_xp(xp_earned)
-        user.quizzes_taken = (user.quizzes_taken or 0) + 1
 
     db.session.commit()
 
@@ -409,5 +459,6 @@ def submit_quiz(lesson_id):
         'xp_earned': xp_earned,
         'total_xp': user.total_xp,
         'level': user.level,
-        'leveled_up': leveled_up
+        'leveled_up': leveled_up,
+        'review': review
     }), 200

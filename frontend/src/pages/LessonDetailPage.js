@@ -40,11 +40,14 @@ function LessonDetailPage() {
   const [quizData, setQuizData] = useState(null);  // from /quiz GET
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizSubmitting, setQuizSubmitting] = useState(false);
+  const [quizError, setQuizError] = useState('');
   const [results, setResults] = useState(null);
 
   // timer (seconds elapsed since start)
   const timerRef = useRef(null);
   const secondsRef = useRef(0);
+  // first answer to each activity step (step index -> option index)
+  const stepAnswersRef = useRef({});
 
   const startTimer = useCallback(() => {
     secondsRef.current = 0;
@@ -70,6 +73,13 @@ function LessonDetailPage() {
     try {
       const response = await api.get(`/lessons/${id}`);
       setLesson(response.data);
+      // The quiz is stored separately; a lesson without one is just completed
+      try {
+        const quizRes = await api.get(`/lessons/${id}/quiz`);
+        setQuizData(quizRes.data);
+      } catch (_) {
+        setQuizData(null);
+      }
       setPhase('intro');
       setLoading(false);
     } catch (err) {
@@ -85,6 +95,7 @@ function LessonDetailPage() {
       await api.post(`/lessons/${id}/start`);
     } catch (_) {}
     startTimer();
+    stepAnswersRef.current = {};
     setStepIndex(0);
     setSelectedOption(null);
     setAnswered(false);
@@ -93,8 +104,26 @@ function LessonDetailPage() {
 
   const handleOptionSelect = (optionIndex) => {
     if (answered) return;
+    if (stepAnswersRef.current[stepIndex] === undefined) {
+      stepAnswersRef.current[stepIndex] = optionIndex;
+    }
     setSelectedOption(optionIndex);
     setAnswered(true);
+  };
+
+  // Save how the student did on the lesson's practice questions (feeds the
+  // engagement model's practice accuracy). Saving must never block the lesson.
+  const saveLessonActivities = (steps) => {
+    const activitySteps = steps
+      .map((step, index) => ({ step, index }))
+      .filter(({ step }) => step.type === 'activity' && step.correct !== undefined);
+    if (activitySteps.length === 0) return;
+    const answers = activitySteps.map(({ index }) => stepAnswersRef.current[index] ?? -1);
+    api.post('/activities/lesson-steps', {
+      lesson_id: Number(id),
+      answers,
+      time_spent: secondsRef.current,
+    }).catch(() => {});
   };
 
   const handleNextStep = () => {
@@ -105,13 +134,15 @@ function LessonDetailPage() {
       setSelectedOption(null);
       setAnswered(false);
     } else {
-      // All steps done — move to quiz
+      // All steps done — save the activity answers, then move to quiz
+      saveLessonActivities(steps);
       setPhase('quiz');
     }
   };
 
   const handleQuizAnswerChange = (qIndex, optionIndex) => {
     setQuizAnswers(prev => ({ ...prev, [qIndex]: optionIndex }));
+    setQuizError('');
   };
 
   const handleSubmitQuiz = async () => {
@@ -129,10 +160,12 @@ function LessonDetailPage() {
       quizAnswers[i] !== undefined ? quizAnswers[i] : -1
     );
 
-    if (answersArr.filter(a => a !== -1).length < totalQ) {
-      alert('Please answer all questions before submitting!');
+    const unanswered = answersArr.filter(a => a === -1).length;
+    if (unanswered > 0) {
+      setQuizError(`Please answer all questions first (${unanswered} left).`);
       return;
     }
+    setQuizError('');
 
     setQuizSubmitting(true);
     stopTimer();
@@ -146,17 +179,27 @@ function LessonDetailPage() {
       });
 
       // Also mark lesson complete with time spent
-      await api.post(`/lessons/${id}/complete`, { time_spent: elapsedSeconds });
+      const completeRes = await api.post(`/lessons/${id}/complete`, { time_spent: elapsedSeconds });
+      const lessonXp = completeRes.data?.xp_earned || 0;
 
-      setResults({ ...quizRes.data, time_spent: elapsedSeconds });
+      setResults({
+        ...quizRes.data,
+        xp_earned: (quizRes.data.xp_earned || 0) + lessonXp,
+        leveled_up: quizRes.data.leveled_up || completeRes.data?.leveled_up,
+        level: completeRes.data?.level ?? quizRes.data.level,
+        already_completed: completeRes.data?.already_completed,
+        time_spent: elapsedSeconds,
+      });
       setPhase('results');
       refreshUser();
     } catch (err) {
       // If quiz route doesn't exist yet, fall back to lesson complete only
       try {
-        await api.post(`/lessons/${id}/complete`, { time_spent: elapsedSeconds });
-        setResults({ score: null, passed: true, xp_earned: lesson.xp_reward || 0 });
-        setPhase('results');      refreshUser();      } catch (_) {
+        const res = await api.post(`/lessons/${id}/complete`, { time_spent: elapsedSeconds });
+        setResults({ score: null, passed: true, xp_earned: res.data?.xp_earned ?? 0, already_completed: res.data?.already_completed });
+        setPhase('results');
+        refreshUser();
+      } catch (_) {
         setError('Could not save progress. Please try again.');
       }
     } finally {
@@ -169,7 +212,7 @@ function LessonDetailPage() {
     const elapsedSeconds = secondsRef.current;
     try {
       const res = await api.post(`/lessons/${id}/complete`, { time_spent: elapsedSeconds });
-      setResults({ xp_earned: res.data.xp_earned || lesson.xp_reward || 0, leveled_up: res.data.leveled_up });
+      setResults({ xp_earned: res.data.xp_earned ?? 0, leveled_up: res.data.leveled_up, already_completed: res.data.already_completed });
       setPhase('results');
       refreshUser();
     } catch (_) {
@@ -350,12 +393,13 @@ function LessonDetailPage() {
     // Try to get questions from lesson content (static) or previously fetched quiz
     const contentQuestions = interactiveContent?.quiz?.questions || null;
     const questions = contentQuestions || quizData?.questions || [];
+    const passingScore = quizData?.passing_score ?? 60;
 
     return (
       <div className="container" style={{ maxWidth: '680px', margin: '0 auto', padding: '2rem 1rem' }}>
         <div style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', padding: '2rem', border: `2px solid ${color}30` }}>
           <h2 style={{ color: '#1e293b', fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>🎯 Quick Quiz</h2>
-          <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>Answer to earn extra XP! You need 60% to pass.</p>
+          <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>Answer to earn extra XP! You need {passingScore}% to pass.</p>
 
           {questions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -387,6 +431,12 @@ function LessonDetailPage() {
                 </div>
               ))}
 
+              {quizError && (
+                <div role="alert" style={{ background: '#fef2f2', color: '#b91c1c', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '0.7rem 1rem', marginBottom: '1rem', fontWeight: 600 }}>
+                  {quizError}
+                </div>
+              )}
+
               <button
                 onClick={handleSubmitQuiz}
                 disabled={quizSubmitting}
@@ -405,7 +455,11 @@ function LessonDetailPage() {
     const color = { math: '#3b82f6', english: '#8b5cf6', science: '#10b981' }[lesson.category] || '#f59e0b';
     const passed = results.passed !== false;
     const score = results.score;
-    const emoji = interactiveContent?.emoji || '📚';
+    const passingScore = quizData?.passing_score ?? 60;
+    const quizQuestions = interactiveContent?.quiz?.questions || quizData?.questions || [];
+    const mistakes = (results.review || [])
+      .map((r, i) => ({ ...r, index: i, question: quizQuestions[i] }))
+      .filter(r => !r.is_correct && r.question);
 
     return (
       <div className="container" style={{ maxWidth: '560px', margin: '0 auto', padding: '2rem 1rem', textAlign: 'center' }}>
@@ -427,12 +481,29 @@ function LessonDetailPage() {
               <div style={{ fontSize: '3rem', fontWeight: 800, color }}>
                 {results.correct}/{results.total}
               </div>
-              <div style={{ color: '#64748b', fontSize: '1rem' }}>{score}% — {passed ? '✅ Passed!' : '❌ Not passed (need 60%)'}</div>
+              <div style={{ color: '#64748b', fontSize: '1rem' }}>{score}% — {passed ? '✅ Passed!' : `❌ Not passed (need ${passingScore}%)`}</div>
+            </div>
+          )}
+
+          {mistakes.length > 0 && (
+            <div style={{ textAlign: 'left', background: '#f8fafc', borderRadius: '12px', padding: '1rem 1.2rem', margin: '1rem 0' }}>
+              <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: '0.5rem' }}>Let's look at the tricky ones:</div>
+              {mistakes.map(m => (
+                <div key={m.index} style={{ padding: '0.5rem 0', borderTop: '1px solid #e2e8f0', color: '#374151' }}>
+                  <div style={{ fontWeight: 600 }}>{m.index + 1}. {m.question.q}</div>
+                  <div style={{ color: '#b91c1c' }}>You chose: {m.question.options?.[m.your_answer] ?? '—'}</div>
+                  <div style={{ color: '#166534' }}>Right answer: {m.question.options?.[m.correct_answer] ?? '—'}</div>
+                </div>
+              ))}
             </div>
           )}
 
           <div style={{ background: '#fef9c3', borderRadius: '12px', padding: '0.9rem', margin: '1rem 0', fontSize: '1.1rem', fontWeight: 700, color: '#92400e' }}>
-            ⭐ +{results.xp_earned} XP earned!
+            {results.xp_earned > 0
+              ? `⭐ +${results.xp_earned} XP earned!`
+              : results.already_completed
+                ? '📖 Lesson reviewed - XP is earned the first time you finish a lesson'
+                : '⭐ No XP this time - try again to pass the quiz!'}
           </div>
 
           <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center', marginTop: '1.5rem', flexWrap: 'wrap' }}>
@@ -442,7 +513,7 @@ function LessonDetailPage() {
               📚 More Lessons
             </button>
             <button
-              onClick={() => { setPhase('intro'); setQuizAnswers({}); setResults(null); setStepIndex(0); }}
+              onClick={() => { setPhase('intro'); setQuizAnswers({}); setQuizError(''); setResults(null); setStepIndex(0); }}
               style={{ background: '#f1f5f9', color: '#1e293b', border: '2px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1.8rem', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>
               🔄 Try Again
             </button>

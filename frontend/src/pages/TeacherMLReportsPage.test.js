@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
-import TeacherMLReportsPage, { describeTraining, formatQuizScore } from './TeacherMLReportsPage';
+import TeacherMLReportsPage, { ActivitySummary, describeTraining, formatQuizScore } from './TeacherMLReportsPage';
 import api from '../services/api';
 
 jest.mock('../services/api', () => ({
@@ -85,5 +85,23 @@ describe('TeacherMLReportsPage model reporting', () => {
     await user.click(screen.getByRole('button', { name: /🆕 New \(1\)/ }));
     expect(screen.queryByText('kasun')).not.toBeInTheDocument();
     expect(screen.getByText('dilini')).toBeInTheDocument();
+  });
+});
+
+describe('ActivitySummary', () => {
+  test('shows practice, games, accuracy by area and the check-in', () => {
+    render(<ActivitySummary activity={{
+      practice_rounds_week: 3, games_week: 1, lesson_activity_accuracy: 50, hints_per_question: 0.4,
+      accuracy_by_area: { math: 80, words: null, world: 66.7 },
+      latest_check_in: { mood: 'unsure', emoji: '😕', label: 'Not sure' }, checked_in_today: true,
+    }} />);
+    expect(screen.getByText(/3 practice rounds · 1 game run · lesson activities 50% · hints on 40% of questions/)).toBeInTheDocument();
+    expect(screen.getByText(/Number Fun 80%, My World 67%/)).toBeInTheDocument();
+    expect(screen.getByText(/😕 Not sure today/)).toBeInTheDocument();
+  });
+
+  test('renders nothing without activity data', () => {
+    const { container } = render(<ActivitySummary activity={undefined} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

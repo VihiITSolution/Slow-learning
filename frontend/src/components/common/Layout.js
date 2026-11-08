@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { FiHome, FiBook, FiAward, FiTrendingUp, FiUser, FiLogOut, FiUsers, FiBarChart2, FiClipboard, FiSettings } from 'react-icons/fi';
+import { FiHome, FiBook, FiAward, FiTrendingUp, FiUser, FiLogOut, FiUsers, FiBarChart2, FiClipboard, FiSettings, FiTarget } from 'react-icons/fi';
 import { FaBrain, FaGraduationCap, FaGamepad, FaChartLine } from 'react-icons/fa';
 import Avatar from './Avatar';
 
@@ -30,6 +30,7 @@ const NAV = {
   student: [
     { to: '/app/dashboard', icon: FiHome, label: 'Dashboard' },
     { to: '/app/lessons', icon: FiBook, label: 'Lessons' },
+    { to: '/app/practice', icon: FiTarget, label: 'Practice' },
     { to: '/student-dashboard', icon: FaGraduationCap, label: 'Learning Games' },
     { to: '/app/achievements', icon: FiAward, label: 'Achievements' },
     { to: '/app/gamification', icon: FaGamepad, label: 'Gamification' },

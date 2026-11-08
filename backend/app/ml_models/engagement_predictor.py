@@ -26,11 +26,13 @@ from datetime import datetime
 
 
 FEATURE_NAMES = [
-    'time_spent_today',
-    'avg_quiz_score',
-    'login_streak',
-    'lessons_completed_week',
-    'days_inactive',
+    'time_spent_today',        # minutes today in lessons, practice and learning games
+    'avg_quiz_score',          # average lesson-quiz score (%)
+    'login_streak',            # consecutive days logged in
+    'lessons_completed_week',  # lessons finished in the last 7 days
+    'days_inactive',           # days since the last login
+    'practice_accuracy',       # % right first time in practice, lesson activities and games (14 days)
+    'activities_week',         # practice rounds + learning-game runs in the last 7 days
 ]
 
 # Valid range for each feature. Values outside are clipped so that unusual
@@ -41,6 +43,8 @@ FEATURE_BOUNDS = {
     'login_streak': (0, 365),
     'lessons_completed_week': (0, 20),
     'days_inactive': (0, 60),
+    'practice_accuracy': (0, 100),
+    'activities_week': (0, 50),
 }
 
 # Used only when no trained scaler is available to impute missing values.
@@ -50,6 +54,8 @@ FEATURE_DEFAULTS = {
     'login_streak': 0.0,
     'lessons_completed_week': 0.0,
     'days_inactive': 0.0,
+    'practice_accuracy': 60.0,
+    'activities_week': 0.0,
 }
 
 
@@ -57,21 +63,24 @@ def rule_based_engagement_label(features):
     """
     The single rule used to label real (database) students for training.
 
-    A student counts as engaged (1) when they meet at least 3 of these 5
-    criteria; a missing quiz score counts as "not met". This is a heuristic,
-    not a teacher judgement, so a model trained on these labels learns to
-    reproduce the rule - its accuracy must not be reported as real-world
-    accuracy.
+    A student counts as engaged (1) when they meet at least 4 of these 7
+    criteria; a missing quiz score or practice accuracy counts as "not met".
+    This is a heuristic, not a teacher judgement, so a model trained on these
+    labels learns to reproduce the rule - its accuracy must not be reported
+    as real-world accuracy.
     """
     quiz = features.get('avg_quiz_score')
+    practice = features.get('practice_accuracy')
     criteria = [
         (features.get('time_spent_today') or 0) >= 15,
         quiz is not None and quiz >= 60,
         (features.get('login_streak') or 0) >= 2,
         (features.get('lessons_completed_week') or 0) >= 1,
         (features.get('days_inactive') if features.get('days_inactive') is not None else 999) <= 3,
+        practice is not None and practice >= 60,
+        (features.get('activities_week') or 0) >= 2,
     ]
-    return 1 if sum(criteria) >= 3 else 0
+    return 1 if sum(criteria) >= 4 else 0
 
 
 class EngagementPredictor:
@@ -261,18 +270,19 @@ class EngagementPredictor:
             if user_data and user_data.get('days_inactive', 0) > 3:
                 recommendations.append('Send "We miss you!" email')
                 
-            return recommendations
+            return self._activity_tips(user_data) + recommendations
             
         elif not engaged and confidence > 0.6:
-            return [
+            recommendations = [
                 'Send encouraging notification',
                 'Offer small XP bonus (25 XP)',
                 'Highlight recent achievements',
                 'Suggest interesting lessons based on history'
             ]
+            return self._activity_tips(user_data) + recommendations
             
         elif not engaged:
-            return [
+            return self._activity_tips(user_data) + [
                 'Monitor activity closely',
                 'Send gentle reminder about learning goals'
             ]
@@ -282,6 +292,19 @@ class EngagementPredictor:
                 'Maintain current engagement strategies'
             ]
     
+    @staticmethod
+    def _activity_tips(user_data):
+        """Suggestions based on the practice activities (only when the data exists)."""
+        if not user_data:
+            return []
+        tips = []
+        accuracy = user_data.get('practice_accuracy')
+        if accuracy is not None and accuracy < 50:
+            tips.append('Practice answers are often wrong first time - try easier rounds and use hints together')
+        if (user_data.get('activities_week') or 0) == 0:
+            tips.append('No practice or games this week - invite them to a 2-minute practice round')
+        return tips
+
     def train_model(self, training_data, test_size=0.2, cv_folds=5, data_source=None):
         """
         Train the engagement prediction model.
@@ -306,6 +329,9 @@ class EngagementPredictor:
         if algorithm not in ('auto', 'logistic', 'svm', 'neural'):
             raise ValueError(f"Unknown algorithm: {algorithm}")
 
+        # Always train on the current inputs, even if an older model file with
+        # fewer inputs was loaded from disk
+        self.feature_names = list(FEATURE_NAMES)
         X = training_data[self.feature_names].astype(float)
         # Real students without a quiz have no score; fill with the column mean
         X = X.fillna(X.mean()).fillna(0.0)
@@ -508,9 +534,13 @@ def generate_synthetic_training_data(n_samples=1000, random_state=42):
     Generate synthetic training data with naturally overlapping class
     distributions.
 
-    Strategy: derive all five features from a shared latent engagement score
+    Strategy: derive all seven features from a shared latent engagement score
     (+ per-feature noise) so the class boundary is genuinely fuzzy.  About
     12 % of labels are flipped to model real-world annotation uncertainty.
+
+    Time per day is scaled to this platform's activities (a lesson takes
+    about 5-10 minutes, a practice round 2-3 and a games run about 5), so an
+    engaged student spends around 30 minutes a day, not an hour.
 
     Because the labels come from this formula, accuracy on this data shows
     how well a model recovers the formula - not how well it predicts real
@@ -534,15 +564,18 @@ def generate_synthetic_training_data(n_samples=1000, random_state=42):
     ])
     rng.shuffle(latent)
 
-    time_spent        = np.clip(latent * 70 + rng.normal(0, 14, n_samples), 0, 120)
+    time_spent        = np.clip(latent * 40 + rng.normal(0, 8, n_samples), 0, 120)
     avg_quiz_score    = np.clip(latent * 45 + 40 + rng.normal(0, 16, n_samples), 0, 100)
     login_streak_raw  = latent * 10 + rng.normal(0, 3.5, n_samples)
     lessons_raw       = latent * 5  + rng.normal(0, 1.8, n_samples)
     days_inactive_raw = (1 - latent) * 7 + rng.normal(0, 2.5, n_samples)
+    practice_accuracy = np.clip(latent * 40 + 45 + rng.normal(0, 15, n_samples), 0, 100)
+    activities_raw    = latent * 8 + rng.normal(0, 2.5, n_samples)
 
     login_streak  = np.clip(login_streak_raw,  0, 30).astype(int)
     lessons       = np.clip(lessons_raw,       0, 14).astype(int)
     days_inactive = np.clip(days_inactive_raw, 0, 14).astype(int)
+    activities    = np.clip(activities_raw,    0, 30).astype(int)
 
     # Deterministic label from the latent score (threshold at 0.50)
     labels = (latent >= 0.50).astype(int)
@@ -557,6 +590,8 @@ def generate_synthetic_training_data(n_samples=1000, random_state=42):
         'login_streak':           login_streak,
         'lessons_completed_week': lessons,
         'days_inactive':          days_inactive,
+        'practice_accuracy':      practice_accuracy,
+        'activities_week':        activities,
         'engaged':                labels,
     })
     return df

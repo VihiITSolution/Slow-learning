@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { AIClassSummary, EncouragementComposer } from '../components/ai/AIAssist';
 import { Link } from 'react-router-dom';
 
 const RISK_COLOR = {
@@ -30,6 +31,32 @@ const STATUS_STYLE = {
   new: { label: '🆕 New – not enough data yet', color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd', avatar: 'linear-gradient(135deg,#60a5fa,#3b82f6)' },
 };
 
+const AREA_NAMES = { math: 'Number Fun', words: 'Word Play', world: 'My World' };
+
+// One line about the student's practice, games and today's check-in
+export function ActivitySummary({ activity }) {
+  if (!activity) return null;
+  const areas = Object.entries(activity.accuracy_by_area || {})
+    .filter(([, value]) => typeof value === 'number')
+    .map(([area, value]) => `${AREA_NAMES[area] || area} ${Math.round(value)}%`);
+  const parts = [
+    `${activity.practice_rounds_week || 0} practice ${activity.practice_rounds_week === 1 ? 'round' : 'rounds'}`,
+    `${activity.games_week || 0} game ${activity.games_week === 1 ? 'run' : 'runs'}`,
+  ];
+  if (typeof activity.lesson_activity_accuracy === 'number') parts.push(`lesson activities ${Math.round(activity.lesson_activity_accuracy)}%`);
+  if (typeof activity.hints_per_question === 'number' && activity.hints_per_question > 0) parts.push(`hints on ${Math.round(activity.hints_per_question * 100)}% of questions`);
+  const checkIn = activity.latest_check_in;
+  return (
+    <div style={{ marginTop: 12, fontSize: 13, color: '#475569', display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
+      <span><strong style={{ color: '#1e293b' }}>This week:</strong> {parts.join(' · ')}{areas.length ? ` (${areas.join(', ')})` : ''}</span>
+      <span>
+        <strong style={{ color: '#1e293b' }}>Check-in:</strong>{' '}
+        {checkIn ? `${checkIn.emoji} ${checkIn.label}${activity.checked_in_today ? ' today' : ''}` : 'not yet'}
+      </span>
+    </div>
+  );
+}
+
 // Metrics are flat ({ accuracy, algorithm, ... }); older model files nested
 // them under the algorithm name, so support both.
 export function describeTraining(response) {
@@ -53,6 +80,8 @@ export default function TeacherMLReportsPage() {
   const [training, setTraining] = useState(false);
   const [trainResult, setTrainResult] = useState(null);
   const [triggering, setTriggering] = useState(null);
+  const [composing, setComposing] = useState(null);   // student getting an encouragement message
+  const [sentTo, setSentTo] = useState(null);
   const [filter, setFilter] = useState('all'); // all | at-risk | engaged | new
   const [error, setError] = useState('');
 
@@ -197,6 +226,9 @@ export default function TeacherMLReportsPage() {
         </div>
       )}
 
+      {/* AI class summary (Gemini, with a built-in fallback) */}
+      {students.length > 0 && <AIClassSummary />}
+
       {/* Filter tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {[['all', '📋 All Students'], ['at-risk', '⚠️ At Risk Only'], ['engaged', '✅ Engaged Only'], ['new', '🆕 New']].map(([val, label]) => (
@@ -261,13 +293,15 @@ export default function TeacherMLReportsPage() {
                 </div>
 
                 {/* Stats row */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12, marginTop: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 10, marginTop: 16 }}>
                   {[
                     { label: '⏱ Time Today', value: `${features.time_spent_today?.toFixed(0) || 0} min` },
                     { label: '🎯 Quiz Score', value: formatQuizScore(features.avg_quiz_score) },
-                    { label: '🔥 Streak', value: `${features.login_streak || 0} days` },
+                    { label: '🔥 Streak', value: `${features.login_streak || 0} ${(features.login_streak || 0) === 1 ? 'day' : 'days'}` },
                     { label: '📚 Lessons/Week', value: features.lessons_completed_week || 0 },
                     { label: '😴 Days Inactive', value: features.days_inactive || 0 },
+                    { label: '✏️ Practice Accuracy', value: typeof features.practice_accuracy === 'number' ? `${features.practice_accuracy.toFixed(0)}%` : 'No practice yet' },
+                    { label: '🧩 Activities/Week', value: features.activities_week || 0 },
                   ].map(stat => (
                     <div key={stat.label} style={{ background: '#f8fafc', borderRadius: 9, padding: '10px 14px', textAlign: 'center' }}>
                       <div style={{ fontSize: 17, fontWeight: 800, color: '#1e293b' }}>{stat.value}</div>
@@ -275,6 +309,9 @@ export default function TeacherMLReportsPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* What the student did in practice and games this week */}
+                <ActivitySummary activity={student.activity} />
 
                 {/* ML Recommendations for this student */}
                 {recs.length > 0 && (
@@ -295,7 +332,7 @@ export default function TeacherMLReportsPage() {
                   <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 9, background: '#fef9c3', border: '1.5px solid #fde047' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#854d0e', marginBottom: 4 }}>📋 Action Items:</div>
                     <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#713f12' }}>
-                      {student.recommendation.slice(0, 3).map((r, i) => <li key={i}>{r}</li>)}
+                      {student.recommendation.slice(0, 4).map((r, i) => <li key={i}>{r}</li>)}
                     </ul>
                   </div>
                 )}
@@ -308,6 +345,13 @@ export default function TeacherMLReportsPage() {
                   >
                     🧩 Create Support Plan
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => { setComposing(info.user_id); setSentTo(null); }}
+                    style={{ padding: '8px 20px', borderRadius: 8, border: '1.5px solid #ddd6fe', background: '#faf5ff', color: '#6d28d9', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                  >
+                    ✨ Write encouragement
+                  </button>
                   {statusKey === 'at-risk' && (
                     <button
                       onClick={() => triggerIntervention(info.user_id, info.username)}
@@ -318,6 +362,18 @@ export default function TeacherMLReportsPage() {
                     </button>
                   )}
                 </div>
+                {composing === info.user_id && (
+                  <EncouragementComposer
+                    student={info}
+                    onClose={() => setComposing(null)}
+                    onSent={() => { setComposing(null); setSentTo(info.user_id); }}
+                  />
+                )}
+                {sentTo === info.user_id && (
+                  <div role="status" style={{ marginTop: 10, color: '#15803d', fontWeight: 600, fontSize: 13 }}>
+                    💌 Message sent - {info.username} will see it on their dashboard.
+                  </div>
+                )}
               </div>
             );
           })}

@@ -17,7 +17,9 @@ function MLInsightsPage() {
     avg_quiz_score: 70,
     login_streak: 3,
     lessons_completed_week: 2,
-    days_inactive: 0
+    days_inactive: 0,
+    practice_accuracy: 65,
+    activities_week: 3
   });
 
   useEffect(() => {
@@ -74,7 +76,9 @@ function MLInsightsPage() {
         avg_quiz_score: 85,
         login_streak: 10,
         lessons_completed_week: 5,
-        days_inactive: 0
+        days_inactive: 0,
+        practice_accuracy: 85,
+        activities_week: 6
       });
     } else {
       setTestData({
@@ -82,7 +86,9 @@ function MLInsightsPage() {
         avg_quiz_score: 45,
         login_streak: 0,
         lessons_completed_week: 1,
-        days_inactive: 5
+        days_inactive: 5,
+        practice_accuracy: 35,
+        activities_week: 0
       });
     }
     setPrediction(null);
@@ -242,6 +248,26 @@ function MLInsightsPage() {
                 max="365"
               />
             </div>
+            <div className="input-group">
+              <label>Practice Accuracy (% right first time)</label>
+              <input
+                type="number"
+                value={testData.practice_accuracy}
+                onChange={(e) => handleInputChange('practice_accuracy', e.target.value)}
+                min="0"
+                max="100"
+              />
+            </div>
+            <div className="input-group">
+              <label>Practice Rounds + Games (this week)</label>
+              <input
+                type="number"
+                value={testData.activities_week}
+                onChange={(e) => handleInputChange('activities_week', e.target.value)}
+                min="0"
+                max="50"
+              />
+            </div>
           </div>
 
           <button 
@@ -323,7 +349,7 @@ function MLInsightsPage() {
                     <span>Confidence: {((user.confidence || 0) * 100).toFixed(1)}%</span>
                     <span>Time today: {Math.round(user.features?.time_spent_today || 0)} min</span>
                     <span>Score: {typeof user.features?.avg_quiz_score === 'number' ? `${user.features.avg_quiz_score.toFixed(0)}%` : 'No quiz yet'}</span>
-                    <span>Streak: {user.features?.login_streak} days</span>
+                    <span>Streak: {user.features?.login_streak ?? 0} {user.features?.login_streak === 1 ? 'day' : 'days'}</span>
                   </div>
                 </div>
               ))}

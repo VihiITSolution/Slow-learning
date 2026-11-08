@@ -34,6 +34,7 @@ class InterventionPlan(db.Model):
             'student_name': self.student.username if self.student else None,
             'teacher_id': self.teacher_id,
             'teacher_name': self.teacher.username if self.teacher else None,
+            'ai_assisted': self.ai_assisted(),
             'intervention_type': self.intervention_type,
             'custom_intervention': self.custom_intervention,
             'goal': self.goal,
@@ -52,6 +53,11 @@ class InterventionPlan(db.Model):
             data['metric_comparison'] = self.metric_comparison()
         return data
 
+    def ai_assisted(self):
+        """True when the teacher built this plan from an AI suggestion."""
+        from app.models.ai import AISuggestion
+        return db.session.query(AISuggestion.id).filter_by(plan_id=self.id, kind=AISuggestion.PLAN, used=True).first() is not None
+
     def metric_comparison(self):
         if not self.review_snapshot:
             return None
@@ -66,6 +72,15 @@ class InterventionPlan(db.Model):
                 'change': (review.get(field, 0) or 0) - (baseline.get(field, 0) or 0),
             }
             for field in numeric_fields
+        }
+        # Practice accuracy (% right first time) - None when the student had
+        # not practised yet at that point
+        before = (baseline.get('engagement_features') or {}).get('practice_accuracy')
+        after = (review.get('engagement_features') or {}).get('practice_accuracy')
+        comparison['practice_accuracy'] = {
+            'baseline': before,
+            'review': after,
+            'change': round(after - before, 1) if before is not None and after is not None else None,
         }
         comparison['engagement'] = {
             'baseline': baseline.get('engaged'),

@@ -168,6 +168,27 @@ describe('DashboardPage Component', () => {
     });
   });
 
+  test("today's challenges come from real activity", async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/activities/today') {
+        return Promise.resolve({ data: { done: 1, total: 2, challenges: [
+          { id: 'lesson', label: 'Finish one lesson', done: true, link: '/app/lessons' },
+          { id: 'practice', label: 'Do a practice round', done: false, link: '/app/practice' },
+        ] } });
+      }
+      return Promise.resolve({ data: { recommendations: [], leaderboard: [] } });
+    });
+
+    renderDashboardPage();
+
+    expect(await screen.findByText('Do a practice round')).toBeInTheDocument();
+    expect(screen.getByText(/1 of 2 done/i)).toBeInTheDocument();
+    expect(screen.getByText('Done!')).toBeInTheDocument();
+    expect(document.querySelector('a[href="/app/practice"]')).not.toBeNull();
+    expect(screen.queryByText(/flashcard frenzy/i)).toBeNull();
+    expect(document.querySelector('a[href="/app/ml-insights"]')).toBeNull();
+  });
+
   test('handles API errors gracefully', async () => {
     api.get.mockRejectedValue(new Error('API Error'));
     

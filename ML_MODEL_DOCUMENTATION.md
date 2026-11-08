@@ -16,13 +16,36 @@ The Engagement Prediction Model is a machine learning system that predicts wheth
 
 ### Input Features
 
-The model analyzes five key metrics:
+The model analyzes seven metrics:
 
-1. **Time Spent Today** (minutes): Learning time in the current session
-2. **Average Quiz Score** (0-100): Performance on assessments
-3. **Login Streak** (days): Consecutive days of platform access
-4. **Lessons Completed This Week** (count): Weekly learning activity
-5. **Days Inactive** (days): Time since last platform interaction
+1. **Time Spent Today** (minutes): time today in lessons, practice rounds and the learning games
+2. **Average Quiz Score** (0-100): lesson-quiz results
+3. **Login Streak** (days): consecutive days of platform access
+4. **Lessons Completed This Week** (count): lessons finished in the last 7 days
+5. **Days Inactive** (days): time since the last login
+6. **Practice Accuracy** (0-100): % answered right first time in practice rounds,
+   the activities inside lessons and the learning games (last 14 days)
+7. **Activities This Week** (count): practice rounds + learning-game runs in the last 7 days
+
+### Where the activity data comes from
+
+Every short activity a student does is saved as an `ActivityAttempt`
+(`backend/app/models/activity.py`, table `activity_attempts`) through
+`/api/activities`:
+
+| Activity | Student sees | Saved |
+|---|---|---|
+| Practice round | **Practice** page - 5 questions in Number Fun, Word Play or My World, with a hint button and "try again" | right first time, tries, hints, seconds per question |
+| Lesson activities | the practice questions inside a lesson | first answer to each activity step |
+| Learning games | Learning Games (logged-in students) | games finished, wrong tries, time |
+| Daily check-in | "How do you feel about learning today?" | the answer (shown to teachers; **not** a model input) |
+
+Practice questions are generated from a seed that comes back with the
+answers, so the server re-builds the round and marks it itself instead of
+trusting a score sent by the browser. XP for practice and games is capped
+per day so it cannot be farmed. Teachers see a per-student summary
+(accuracy by area, hints and retries per question, latest check-in) on the
+ML Class Report and at `GET /api/activities/student/<id>`.
 
 ## Architecture
 
@@ -295,11 +318,11 @@ Response:
     "algorithm": "logistic",
     "metrics": {
       "algorithm": "logistic",
-      "accuracy": 0.783,
-      "precision": 0.784,
-      "recall": 0.783,
-      "f1_score": 0.783,
-      "roc_auc": 0.844,
+      "accuracy": 0.792,
+      "precision": 0.792,
+      "recall": 0.792,
+      "f1_score": 0.792,
+      "roc_auc": 0.826,
       "test_samples": 600,
       "evaluation": "held-out test split, not used for training or model selection"
     },
@@ -308,7 +331,9 @@ Response:
       "avg_quiz_score",
       "login_streak",
       "lessons_completed_week",
-      "days_inactive"
+      "days_inactive",
+      "practice_accuracy",
+      "activities_week"
     ]
   }
 }
@@ -444,20 +469,35 @@ was produced with `python train_engagement_model.py --evaluate` using the
 versions in `requirements.txt` (scikit-learn 1.3.0).
 
 ```
-Data: 3,000 synthetic students (seed 42), 80/20 stratified split
+Data: 3,000 synthetic students (seed 42), 80/20 stratified split, 7 inputs
 
 Model selection - 5-fold cross-validation on the training split only:
-  Logistic Regression   0.785 ± 0.016   <- chosen
-  SVM (RBF)             0.784 ± 0.016
-  Neural Network (MLP)  0.776 ± 0.015
+  Logistic Regression   0.795 ± 0.019   <- shipped
+  SVM (RBF)             0.794 ± 0.016
+  Neural Network (MLP)  0.795 ± 0.017
+  (a tie; logistic regression is shipped because its coefficients show
+   which inputs matter - `python train_engagement_model.py --algorithm logistic --evaluate`)
 
 Held-out test split (600 rows, never used for training or selection):
-  Accuracy 0.783 · Precision 0.784 · Recall 0.783 · F1 0.783 · ROC-AUC 0.844
-  Confusion matrix [[TN 245, FP 58], [FN 72, TP 225]]
+  Accuracy 0.792 · Precision 0.792 · Recall 0.792 · F1 0.792 · ROC-AUC 0.826
+  Confusion matrix [[TN 247, FP 56], [FN 69, TP 228]]
 
 Fresh synthetic students (3 x 10,000, unseen seeds):
-  Accuracy 0.783 (0.777-0.787) · ROC-AUC 0.841
+  Accuracy 0.798 (0.797-0.799) · ROC-AUC 0.853
 ```
+
+Effect of the two activity inputs (same synthetic students, logistic
+regression, fresh-data evaluation):
+
+```
+5 inputs (before activities)   accuracy 0.786 · ROC-AUC 0.844
+7 inputs (with activities)     accuracy 0.799 · ROC-AUC 0.853
+```
+
+The synthetic time-per-day was also rescaled to this platform's activities
+(an engaged student spends about 30 minutes, not an hour), so a student who
+does one lesson plus a couple of practice rounds and the games is no longer
+rated "at risk" just for not spending an hour.
 
 What these numbers do and do not show:
 
@@ -470,29 +510,33 @@ What these numbers do and do not show:
   predictions with teacher judgements - for example the outcomes recorded in
   Support Plans (improved / unchanged / needs more support).
 - **"Retrain with real data"** labels database students with
-  `rule_based_engagement_label` (3 of 5 activity criteria). A model trained on
+  `rule_based_engagement_label` (4 of 7 activity criteria). A model trained on
   those labels learns the rule, so its accuracy is also not real-world accuracy.
 - **New students.** A student who joined in the last 7 days and has no
-  completed lessons or quiz attempts is reported as `engaged: null`,
+  completed lessons, quiz attempts or practice activities is reported as `engaged: null`,
   `risk_level: "new"` and receives no automatic interventions.
-- **Missing quiz scores** are replaced with the training average (neutral),
-  not treated as 0%. A login streak only counts if the student logged in today
+- **Missing quiz scores and practice accuracy** are replaced with the training
+  average (neutral), not treated as 0%. A login streak only counts if the student logged in today
   or yesterday.
 - **Time of day.** `time_spent_today` resets at midnight (UTC), so the same
   student scores lower early in the day than in the evening.
 - **Confidence / risk levels.** On fresh synthetic data, predictions with
-  confidence above 0.8 are right 87% of the time, 0.6-0.8 about 77%, and
-  0.5-0.6 about 58%.
+  confidence above 0.8 are right 88% of the time, 0.6-0.8 about 78%, and
+  0.5-0.6 about 57%.
+- **Old model files.** A model trained before the activity inputs (5 inputs)
+  still loads and predicts with its own 5 inputs; retraining always uses all 7.
 
 ### Feature Importance
 
 Share of the absolute standardised logistic-regression coefficient:
 
-1. **Time Spent Today** (35.6%, +)
-2. **Days Inactive** (18.2%, -)
-3. **Login Streak** (16.1%, +)
-4. **Lessons Completed This Week** (15.8%, +)
-5. **Average Quiz Score** (14.3%, +)
+1. **Time Spent Today** (26.9%, +)
+2. **Practice Accuracy** (13.7%, +)
+3. **Days Inactive** (13.3%, -)
+4. **Lessons Completed This Week** (12.9%, +)
+5. **Activities This Week** (12.7%, +)
+6. **Login Streak** (11.1%, +)
+7. **Average Quiz Score** (9.5%, +)
 
 ## Customization
 
@@ -524,6 +568,8 @@ def prepare_features(self, user_data):
         'login_streak',
         'lessons_completed_week',
         'days_inactive',
+        'practice_accuracy',
+        'activities_week',
         'your_custom_feature'  # Add here
     ]
 ```
