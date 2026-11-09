@@ -118,6 +118,20 @@ class TestLogin:
         assert 'access_token' in data
         assert data['user']['current_streak'] >= 1
     
+    def test_default_demo_users_exist(self, app):
+        """Test that default demo users are seeded on app startup"""
+        from app.models.user import User
+
+        with app.app_context():
+            users = {user.username: user for user in User.query.all()}
+
+        assert 'student' in users
+        assert 'teacher' in users
+        assert 'admin' in users
+        assert users['student'].check_password('password123')
+        assert users['teacher'].check_password('password123')
+        assert users['admin'].check_password('admin123')
+
     def test_login_invalid_username(self, client):
         """Test login with non-existent username"""
         response = client.post('/api/auth/login', json={

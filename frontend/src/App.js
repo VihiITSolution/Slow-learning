@@ -65,7 +65,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             {/* Start page: logged-in users go to their own home */}
             <Route path="/" element={<HomeRedirect />} />

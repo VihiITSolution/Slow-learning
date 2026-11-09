@@ -117,5 +117,5 @@ Start-Process "http://localhost:3000"
 
 Write-Host ""
 Write-Host "Application is running. Check the terminal windows for logs." -ForegroundColor Green
-Write-Host "This window can be closed. The app will continue running." -ForegroundColor Gray
+Write-Host 'This window can be closed. The app will continue running.' -ForegroundColor Gray
 Write-Host ""

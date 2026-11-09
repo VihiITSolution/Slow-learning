@@ -17,6 +17,37 @@ mail = Mail()
 swagger = Swagger()
 
 
+def seed_default_users():
+    """Create a small set of demo accounts for first-run login support."""
+    from app.models.user import User
+
+    demo_users = [
+        {'username': 'student', 'email': 'student@example.com', 'password': 'password123', 'role': 'student'},
+        {'username': 'student1', 'email': 'student1@example.com', 'password': 'password123', 'role': 'student'},
+        {'username': 'teacher', 'email': 'teacher@example.com', 'password': 'password123', 'role': 'teacher'},
+        {'username': 'teacher1', 'email': 'teacher1@example.com', 'password': 'password123', 'role': 'teacher'},
+        {'username': 'admin', 'email': 'admin@example.com', 'password': 'admin123', 'role': 'admin'},
+    ]
+
+    for user_data in demo_users:
+        existing = User.query.filter(
+            (User.username == user_data['username']) | (User.email == user_data['email'])
+        ).first()
+
+        if existing is not None:
+            continue
+
+        user = User(
+            username=user_data['username'],
+            email=user_data['email'],
+            role=user_data['role']
+        )
+        user.set_password(user_data['password'])
+        db.session.add(user)
+
+    db.session.commit()
+
+
 def create_app(config_name='development'):
     """Create and configure the Flask application"""
     app = Flask(__name__)
@@ -73,6 +104,7 @@ def create_app(config_name='development'):
     # Create database tables and seed initial data
     with app.app_context():
         db.create_all()
+        seed_default_users()
         try:
             import sys as _sys
             _sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
